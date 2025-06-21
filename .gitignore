@@ -7,3 +7,4 @@ target/
 .env.development.local
 .env.test.local
 .env.production.local
+clip_vault_db
