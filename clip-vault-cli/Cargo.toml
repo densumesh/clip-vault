@@ -4,3 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+rusqlite.workspace = true
+clip-vault-core = { path = "../clip-vault-core" }
+base64.workspace = true
+rpassword.workspace = true
+sha2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+humantime.workspace = true
+dialoguer.workspace = true
+
+[lints.clippy]
+pedantic = "warn"

@@ -1,3 +1,14 @@
 [workspace]
 members = ["clip-vault-core", "clip-vault-cli", "clip-vault-daemon"]
 resolver = "2"
+
+[workspace.dependencies]
+base64 = "0.22"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+humantime = "2"
+dialoguer = "0.11"
+rpassword = "7"
+rusqlite = { version = "0.36", features = ["bundled-sqlcipher", "blob"] }

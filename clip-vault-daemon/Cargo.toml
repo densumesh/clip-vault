@@ -6,8 +6,11 @@ edition = "2021"
 [dependencies]
 arboard = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
-sled = "0.34"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 clip-vault-core = { path = "../clip-vault-core" }
-anyhow = "1"
+base64.workspace = true
+
+
+[lints.clippy]
+pedantic = "warn"

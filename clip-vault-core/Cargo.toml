@@ -6,3 +6,10 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
 sha2 = "0.10.9"
+bincode = { version = "1" }
+rusqlite.workspace = true
+
+
+[lints.clippy]
+pedantic = "warn"
+missing-errors-doc = "allow"

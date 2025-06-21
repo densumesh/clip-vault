@@ -1,5 +1,6 @@
 use arboard::Clipboard;
-use clip_vault_core::ClipboardItem;
+use clip_vault_core::{ClipboardItem, SqliteVault, Vault};
+use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{info, Level};
@@ -9,6 +10,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     let mut clipboard = Clipboard::new()?;
+    let key = env::var("CLIP_VAULT_KEY").unwrap_or_default();
+    let store = SqliteVault::open("clip_vault_db", &key)?;
     let mut last_hash: Option<[u8; 32]> = None;
 
     loop {
@@ -16,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let item = ClipboardItem::Text(text);
             let hash = item.hash();
 
-            if last_hash.map(|h| h != hash).unwrap_or(true) {
+            if last_hash.map_or(true, |h| h != hash) {
                 info!(
                     "New clipboard text: {}…",
                     match &item {
@@ -24,11 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 );
 
-                // TODO: persist to sled DB
-                // db.insert(hash, bincode::serialize(&item)?)?;
+                store.insert(hash, &item)?;
                 last_hash = Some(hash);
             }
         }
-        sleep(Duration::from_millis(500)).await;
+        sleep(Duration::from_millis(100)).await;
     }
 }

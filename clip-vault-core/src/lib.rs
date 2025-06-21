@@ -11,6 +11,7 @@ pub enum ClipboardItem {
 
 impl ClipboardItem {
     /// Deterministic hash (duplicate detection).
+    #[must_use]
     pub fn hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         match self {
@@ -19,3 +20,9 @@ impl ClipboardItem {
         hasher.finalize().into()
     }
 }
+
+mod error;
+mod store;
+
+pub use error::{Error, Result};
+pub use store::{SqliteVault, Vault};
