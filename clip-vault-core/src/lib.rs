@@ -1,0 +1,21 @@
+//! Core data types shared by daemon & CLI.
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ClipboardItem {
+    Text(String),
+    // Image(Vec<u8>)   // add later
+}
+
+impl ClipboardItem {
+    /// Deterministic hash (duplicate detection).
+    pub fn hash(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        match self {
+            ClipboardItem::Text(t) => hasher.update(t.as_bytes()),
+        }
+        hasher.finalize().into()
+    }
+}
