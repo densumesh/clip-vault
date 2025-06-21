@@ -1,8 +1,8 @@
-use base64::Engine;
 use clap::{Parser, Subcommand};
 use clip_vault_core::{Error, Result, SqliteVault, Vault};
 use dialoguer::Password;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
 
 #[derive(Parser)]
@@ -29,6 +29,8 @@ enum Commands {
     List,
     /// Set up LaunchAgent/Service and vault password
     Setup,
+    /// Gracefully stop the running daemon
+    Stop,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,12 +97,17 @@ fn obtain_key(rem: Option<StdDuration>, forget: bool) -> Result<String> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let key = obtain_key(cli.remember, cli.forget)?;
-
     match cli.command {
-        Commands::Latest => cmd_latest(&key)?,
-        Commands::List => cmd_list(&key)?,
+        Commands::Latest => {
+            let key = obtain_key(cli.remember, cli.forget)?;
+            cmd_latest(&key)?;
+        }
+        Commands::List => {
+            let key = obtain_key(cli.remember, cli.forget)?;
+            cmd_list(&key)?;
+        }
         Commands::Setup => cmd_setup()?,
+        Commands::Stop => cmd_stop()?,
     }
 
     Ok(())
@@ -122,11 +129,8 @@ fn cmd_list(key: &str) -> Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn cmd_setup() -> Result<()> {
-    use sha2::{Digest, Sha256};
-    use std::{fs, path::PathBuf};
-
-    // 1. Prompt for password twice
     let first = rpassword::prompt_password("Set vault password: ")?;
     let second = rpassword::prompt_password("Confirm password: ")?;
     if first != second {
@@ -134,64 +138,48 @@ fn cmd_setup() -> Result<()> {
         std::process::exit(1);
     }
 
-    // 2. Derive 32-byte key via SHA-256 of UTF-8 bytes
-    let mut hasher = Sha256::new();
-    hasher.update(first.as_bytes());
-    let key = hasher.finalize();
-    let key_b64 = base64::engine::general_purpose::STANDARD.encode(key);
+    let exe = std::env::current_exe()?.with_file_name("clip-vault-daemon");
+    println!("exe: {}", exe.display());
 
-    // 3. Create LaunchAgent plist on macOS (~/Library/LaunchAgents/com.clip-vault.daemon.plist)
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME").expect("HOME not set");
-        let launch_agents = PathBuf::from(home).join("Library/LaunchAgents");
-        fs::create_dir_all(&launch_agents)?;
+    let label = "com.clip-vault.daemon";
 
-        let plist_path = launch_agents.join("com.clip-vault.daemon.plist");
+    // Build the LaunchAgent dictionary
+    let plist = serde_json::json!({
+        "Label": label,
+        "ProgramArguments": [exe.to_string_lossy().into_owned()],
+        "EnvironmentVariables": {
+            "CLIP_VAULT_KEY": second,
+            "CLIP_VAULT_FOREGROUND": "1",
+        },
+        "RunAtLoad": true,
+        "KeepAlive": true,
+        "StandardOutPath": "/tmp/clip-vault.out",
+        "StandardErrorPath": "/tmp/clip-vault.err",
+    });
 
-        let exe = std::env::current_exe()?;
-        // assume daemon binary is alongside CLI (../clip-vault-daemon)
-        let daemon_path = exe.with_file_name("clip-vault-daemon");
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents")
+        .join(format!("{label}.plist"));
+    std::fs::create_dir_all(plist_path.parent().unwrap())?;
+    plist::to_file_xml(&plist_path, &plist)
+        .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
-        let plist_content = format!(
-            r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key><string>com.clip-vault.daemon</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{}</string>
-    </array>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>CLIP_VAULT_KEY</key><string>{}</string>
-    </dict>
-    <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-"#,
-            daemon_path.display(),
-            key_b64
-        );
+    // load & start
+    let service = launchctl::Service::builder()
+        .plist_path(plist_path.to_string_lossy().into_owned())
+        .name(label)
+        .build();
+    service.start()?; // launchctl start
 
-        fs::write(&plist_path, plist_content)?;
-
-        println!("LaunchAgent written to {}", plist_path.display());
-        println!(
-            "Run 'launchctl load {}' to start the daemon now.",
-            plist_path.display()
-        );
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    println!("Bootstrap currently implemented only for macOS (launchd). Please set CLIP_VAULT_KEY and run the daemon manually on this platform.");
-
+    println!("LaunchAgent installed & started ✅");
     Ok(())
 }
 
 fn open_store_with_key(key: &str) -> Result<SqliteVault> {
-    match SqliteVault::open("clip_vault_db", key) {
+    let path = clip_vault_core::default_db_path();
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    match SqliteVault::open(path, key) {
         Ok(s) => Ok(s),
         Err(err) => {
             if let Error::Sqlite(sql_err) = &err {
@@ -203,4 +191,18 @@ fn open_store_with_key(key: &str) -> Result<SqliteVault> {
             Err(err)
         }
     }
+}
+
+fn cmd_stop() -> Result<()> {
+    let label = "com.clip-vault.daemon";
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents")
+        .join(format!("{label}.plist"));
+    let service = launchctl::Service::builder()
+        .plist_path(plist_path.to_string_lossy().into_owned())
+        .name(label)
+        .build();
+    service.stop()?;
+    Ok(())
 }

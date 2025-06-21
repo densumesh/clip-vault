@@ -9,9 +9,26 @@ use tracing::{info, Level};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if env::var("CLIP_VAULT_FOREGROUND").is_err() {
+            let stdout = fs::File::create("/tmp/clip-vault.out")?;
+            let stderr = fs::File::create("/tmp/clip-vault.err")?;
+            Daemonize::new()
+                .pid_file("/tmp/clip-vault.pid")
+                .chown_pid_file(true)
+                .working_directory("/")
+                .stdout(stdout)
+                .stderr(stderr)
+                .start()?;
+        }
+    }
+
     let mut clipboard = Clipboard::new()?;
     let key = env::var("CLIP_VAULT_KEY").unwrap_or_default();
-    let store = SqliteVault::open("clip_vault_db", &key)?;
+    let db_path = clip_vault_core::default_db_path();
+    std::fs::create_dir_all(db_path.parent().unwrap())?;
+    let store = SqliteVault::open(db_path, &key)?;
     let mut last_hash: Option<[u8; 32]> = None;
 
     loop {

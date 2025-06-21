@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClipboardItem {
@@ -26,3 +27,9 @@ mod store;
 
 pub use error::{Error, Result};
 pub use store::{SqliteVault, Vault};
+
+#[must_use]
+pub fn default_db_path() -> PathBuf {
+    let base = dirs::data_dir().unwrap_or_else(std::env::temp_dir);
+    base.join("clip-vault").join("clip_vault.db")
+}
