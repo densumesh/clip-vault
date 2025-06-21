@@ -1,0 +1,3 @@
+[workspace]
+members = ["clip-vault-core", "clip-vault-cli", "clip-vault-daemon"]
+resolver = "2"
