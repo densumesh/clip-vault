@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "Clip Vault",
+  "version": "0.1.0",
+  "identifier": "com.clipvault.app",
+  "build": {
+    "frontendDist": "./dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "search",
+        "title": "Clip Vault Search",
+        "width": 600,
+        "height": 400,
+        "visible": false,
+        "decorations": true,
+        "center": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true
+      }
+    ],
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    }
+  }
+}

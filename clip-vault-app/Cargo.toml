@@ -1,0 +1,17 @@
+[package]
+name = "clip-vault-app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clip-vault-core = { path = "../clip-vault-core" }
+tauri = { version = "2", features = ["macos-private-api"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-shell = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+arboard = "3"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

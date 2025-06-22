@@ -1,5 +1,11 @@
 [workspace]
-members = ["clip-vault-core", "clip-vault-cli", "clip-vault-daemon", "clip-vault-tests"]
+members = [
+    "clip-vault-core",
+    "clip-vault-cli",
+    "clip-vault-daemon",
+    "clip-vault-tests",
+    "clip-vault-app",
+]
 resolver = "2"
 
 [workspace.dependencies]
