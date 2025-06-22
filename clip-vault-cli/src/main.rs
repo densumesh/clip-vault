@@ -234,8 +234,7 @@ fn cmd_setup() -> Result<()> {
         .join("Library/LaunchAgents")
         .join(format!("{label}.plist"));
     std::fs::create_dir_all(plist_path.parent().unwrap())?;
-    plist::to_file_xml(&plist_path, &plist)
-        .map_err(|e| Error::Io(std::io::Error::other(e)))?;
+    plist::to_file_xml(&plist_path, &plist).map_err(|e| Error::Io(std::io::Error::other(e)))?;
 
     // load & start
     let service = launchctl::Service::builder()
