@@ -30,7 +30,7 @@ export const useKeyboardNavigation = ({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex(Math.max(selectedIndex - 1, 0));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" || (e.metaKey && e.key === "c")) {
       e.preventDefault();
       if (results[selectedIndex]) {
         onCopy(results[selectedIndex].content, results[selectedIndex].content_type);
