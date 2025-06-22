@@ -24,6 +24,7 @@ import { formatTimestamp, getWindowedContent, highlightText } from "./utils/text
 function App() {
   const [copiedToast, setCopiedToast] = useState(false);
   const [searching, setSearching] = useState(true);
+  const [justCopied, setJustCopied] = useState(false);
   // Custom hooks
   const {
     query,
@@ -48,9 +49,12 @@ function App() {
 
   // Handle copy with toast notification
   const handleCopy = async (content: string, contentType: string) => {
+    setJustCopied(true);
     const success = await copyToClipboard(content, contentType);
     if (success) {
       setCopiedToast(true);
+      // Reset the flag after a short delay to allow for clipboard events
+      setTimeout(() => setJustCopied(false), 1000);
       setTimeout(() => setCopiedToast(false), 1300);
     }
   };
@@ -67,7 +71,12 @@ function App() {
 
   // Clipboard updates
   useClipboardUpdates({
-    onClipboardUpdate: () => searchClipboard(query),
+    onClipboardUpdate: () => {
+      // Don't refresh if we just copied something from the app
+      if (!justCopied) {
+        searchClipboard(query);
+      }
+    },
     showPasswordPrompt,
   });
 
