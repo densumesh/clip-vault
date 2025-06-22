@@ -73,6 +73,20 @@ body {
   border: 1px solid var(--border-light);
 }
 
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.results-panel {
+  width: 40%;
+  min-width: 300px;
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+}
+
 .search-container {
   padding-left: 16px;
   padding-right: 16px;
@@ -232,7 +246,7 @@ body {
 
 .copy-notification {
   position: fixed;
-  top: 50%;
+  top: 90%;
   left: 50%;
   transform: translate(-50%, -50%);
   background: var(--success-bg);
@@ -242,7 +256,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   z-index: 1000;
-  animation: fadeInOut 1s ease-in-out;
+  animation: fadeInOut 1.5s ease-in-out;
 }
 
 @keyframes fadeInOut {
@@ -281,6 +295,293 @@ body {
 
 .results-list::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* Preview Pane Styles */
+.preview-pane {
+  width: 60%;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-tertiary);
+}
+
+.preview-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.preview-empty-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+}
+
+.preview-metadata {
+  flex: 1;
+}
+
+.preview-timestamp {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.preview-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.language-tag {
+  background: var(--accent-primary);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.preview-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--accent-primary);
+  color: white;
+}
+
+.preview-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.preview-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.preview-button.save {
+  background: var(--success-bg);
+  color: white;
+}
+
+.preview-button.cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-secondary);
+}
+
+.preview-button.edit {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+}
+
+.preview-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-code {
+  flex: 1;
+  margin: 0;
+  padding: 20px;
+  background: var(--bg-primary);
+  overflow: auto;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border: none;
+}
+
+.preview-code code {
+  display: block;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Syntax highlighting overrides for dark/light theme */
+@media (prefers-color-scheme: light) {
+  .preview-code {
+    background: var(--bg-secondary);
+  }
+}
+
+/* Custom scrollbar for preview content */
+.preview-code::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-code::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.preview-code::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 4px;
+}
+
+.preview-code::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.preview-code::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+/* Edit mode textarea */
+.preview-edit-textarea {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 20px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: auto;
+  border-radius: 0;
+}
+
+.preview-edit-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.preview-edit-textarea:focus {
+  background: var(--bg-primary);
+  border: none;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+/* Custom scrollbar for textarea */
+.preview-edit-textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-edit-textarea::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.preview-edit-textarea::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 4px;
+}
+
+.preview-edit-textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.preview-edit-textarea::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+/* Image display styles */
+.image-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.result-image-thumbnail {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.image-info {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.preview-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 20px;
+  overflow: auto;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+@media (prefers-color-scheme: light) {
+  .preview-image {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .preview-image {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
 }
 
 /* Modal Styles */

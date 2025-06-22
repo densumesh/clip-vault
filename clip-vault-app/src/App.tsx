@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { listen } from "@tauri-apps/api/event";
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 import "./App.css";
 
 interface SearchResult {
@@ -10,6 +13,220 @@ interface SearchResult {
   content_type: string;
 }
 
+interface PreviewPaneProps {
+  selectedItem: SearchResult | null;
+  onCopy: (content: string, contentType?: string) => void;
+  onEdit?: () => void;
+}
+
+const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }) => {
+  const previewRef = useRef<HTMLElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [language, setLanguage] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const formatTimestamp = (timestamp: number): string => {
+    const date = new Date(timestamp / 1_000_000);
+    return date.toLocaleString();
+  };
+
+  const getContentStats = (content: string) => {
+    const lines = content.split('\n').length;
+    const chars = content.length;
+    const words = content.trim().split(/\s+/).length;
+    return { lines, chars, words };
+  };
+
+  const handleSave = async () => {
+    if (!selectedItem || isSaving) return;
+
+    try {
+      setIsSaving(true);
+      await invoke("update_item", {
+        oldContent: selectedItem.content,
+        newContent: editedContent,
+      });
+      setIsEditing(false);
+      // Note: The backend should emit a clipboard-updated event to refresh results
+    } catch (error) {
+      console.error("Failed to save item:", error);
+      alert("Failed to save changes. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedContent(selectedItem?.content || "");
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
+
+  useEffect(() => {
+    const highlightContent = async () => {
+      if (!selectedItem || !previewRef.current) return;
+      if (selectedItem.content_type.startsWith("image/")) {
+        setLanguage("image");
+        previewRef.current.innerHTML = "";
+        return;
+      }
+
+      const highlighted = hljs.highlightAuto(selectedItem.content);
+      if (highlighted.relevance > 10) {
+        previewRef.current.innerHTML = highlighted.value;
+        setLanguage(highlighted.language || "plaintext");
+      } else {
+        previewRef.current.innerText = selectedItem.content;
+        setLanguage("plaintext");
+      }
+      setIsEditing(false);
+      setEditedContent(selectedItem?.content || "");
+    }
+    highlightContent();
+  }, [selectedItem]);
+
+  // Handle keyboard shortcuts in edit mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 's' && isEditing) {
+          e.preventDefault();
+          handleSave();
+        } else if (e.key === 'e' && !isEditing && selectedItem?.content_type.startsWith('text')) {
+          e.preventDefault();
+          handleEdit();
+        }
+      } else if (e.key === 'Escape' && isEditing) {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditing, editedContent, selectedItem]);
+
+  if (!selectedItem) {
+    return (
+      <div className="preview-pane">
+        <div className="preview-empty">
+          <div className="preview-empty-icon">📋</div>
+          <div className="preview-empty-text">Select an item to preview</div>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = getContentStats(selectedItem.content);
+
+  return (
+    <div className="preview-pane">
+      <div className="preview-header">
+        <div className="preview-metadata">
+          <div className="preview-timestamp">
+            {formatTimestamp(selectedItem.timestamp)}
+          </div>
+          {language != "image" ? (
+            <div className="preview-stats">
+              <span className="stat-item">{stats.lines} lines</span>
+              <span className="stat-item">{stats.chars} chars</span>
+              <span className="stat-item">{stats.words} words</span>
+              {language && <span className="stat-item language-tag">{language}</span>}
+            </div>
+          ) : (
+            <div className="preview-stats">
+              <span className="stat-item">{(() => {
+                const img = new Image();
+                img.src = `data:${selectedItem.content_type};base64,${selectedItem.content}`;
+                return `${img.width} × ${img.height}px`;
+              })()}</span>
+              <span className="stat-item language-tag">Image</span>
+            </div>
+          )}
+        </div>
+        <div className="preview-actions">
+          {isEditing ? (
+            <>
+              <button
+                className="preview-button save"
+                onClick={handleSave}
+                disabled={isSaving || editedContent === selectedItem.content}
+                title="Save changes (Ctrl+S)"
+              >
+                {isSaving ? "⏳ Saving..." : "💾 Save"}
+              </button>
+              <button
+                className="preview-button cancel"
+                onClick={handleCancel}
+                disabled={isSaving}
+                title="Cancel editing (Esc)"
+              >
+                ✖ Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="preview-button"
+                onClick={() => onCopy(selectedItem.content, selectedItem.content_type)}
+                title="Copy to clipboard"
+              >
+                📋 Copy
+              </button>
+              {selectedItem.content_type.startsWith('text') && (
+                <button
+                  className="preview-button edit"
+                  onClick={handleEdit}
+                  title="Edit content (Ctrl+E)"
+                >
+                  ✏️ Edit
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      <div className="preview-content">
+        {isEditing ? (
+          <textarea
+            ref={textareaRef}
+            className="preview-edit-textarea"
+            value={editedContent}
+            onChange={e => setEditedContent(e.target.value)}
+            placeholder="Edit your content here..."
+            spellCheck={false}
+          />
+        ) : selectedItem.content_type.startsWith('image/') ? (
+          <div className="preview-image-container">
+            <img
+              ref={previewRef as React.RefObject<HTMLImageElement>}
+              src={`data:${selectedItem.content_type};base64,${selectedItem.content}`}
+              alt="Clipboard image"
+              className="preview-image"
+            />
+          </div>
+        ) : (
+          <pre className="preview-code" onClick={() => setIsEditing(true)}>
+            <code ref={previewRef} className={`language-${language}`}>
+              {selectedItem.content}
+            </code>
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 function App() {
   const [query, setQuery] = useState("");
@@ -18,14 +235,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [password, setPassword] = useState("");
-  const [vaultUnlocked, setVaultUnlocked] = useState(false);
+  const [copiedToast, setCopiedToast] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const checkVaultStatus = async () => {
     try {
       const isUnlocked = await invoke<boolean>("check_vault_status");
-      setVaultUnlocked(isUnlocked);
 
       if (!isUnlocked) {
         setShowPasswordPrompt(true);
@@ -35,7 +251,6 @@ function App() {
       return isUnlocked;
     } catch (error) {
       console.error("Failed to check vault status:", error);
-      setVaultUnlocked(false);
       setShowPasswordPrompt(true);
       return false;
     }
@@ -52,9 +267,7 @@ function App() {
     } catch (error) {
       console.error("Search failed:", error);
 
-      // If search fails due to vault being locked, trigger unlock prompt
       if (error && error.toString().includes("not unlocked")) {
-        setVaultUnlocked(false);
         setShowPasswordPrompt(true);
       }
 
@@ -64,11 +277,20 @@ function App() {
     }
   };
 
-  const copyToClipboard = async (content: string) => {
+  const copyToClipboard = async (content: string, contentType?: string) => {
     try {
-      await navigator.clipboard.writeText(content);
-      const window = getCurrentWebviewWindow();
-      await window.hide();
+      if (contentType && contentType.startsWith('image/')) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [contentType]: new Blob([atob(content)], { type: contentType })
+          })
+        ]);
+      } else {
+        await navigator.clipboard.writeText(content);
+      }
+      // show toast
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 1300);
     } catch (error) {
       console.error("Copy failed:", error);
     }
@@ -79,7 +301,6 @@ function App() {
     try {
       const success = await invoke<boolean>("unlock_vault", { password });
       if (success) {
-        setVaultUnlocked(true);
         setShowPasswordPrompt(false);
         setPassword("");
         // Refresh search results
@@ -217,7 +438,7 @@ function App() {
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (results[selectedIndex]) {
-          copyToClipboard(results[selectedIndex].content);
+          copyToClipboard(results[selectedIndex].content, results[selectedIndex].content_type);
         }
       }
     };
@@ -230,8 +451,8 @@ function App() {
     const activeEl = resultRefs.current[selectedIndex];
     if (activeEl) {
       activeEl.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
+        behavior: "instant",
+        block: "nearest",
       });
     }
   }, [selectedIndex]);
@@ -255,6 +476,31 @@ function App() {
       window.removeEventListener('focus', handleWindowFocus);
     };
   }, []);
+
+  useEffect(() => {
+    if (showPasswordPrompt) return;
+
+    let unlisten: (() => void) | undefined;
+
+    const setupEventListener = async () => {
+      try {
+        unlisten = await listen("clipboard-updated", () => {
+          console.log("Clipboard updated, refreshing results...");
+          searchClipboard(query);
+        });
+      } catch (error) {
+        console.error("Failed to setup clipboard event listener:", error);
+      }
+    };
+
+    setupEventListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [query, showPasswordPrompt]);
 
 
   return (
@@ -285,37 +531,59 @@ function App() {
         )}
       </div>
 
-      <div className="results-container">
-        {loading && <div className="loading">Searching...</div>}
+      <div className="main-content">
+        <div className="results-panel">
+          <div className="results-container">
+            {loading && <div className="loading">Searching...</div>}
 
-        {!loading && results.length === 0 && (
-          <div className="empty-state">
-            {query ? "No matches found" : "No clipboard history yet"}
-          </div>
-        )}
-
-        {!loading && results.length > 0 && (
-          <div className="results-list">
-            {results.map((result, index) => (
-              <div
-                key={result.id}
-                ref={el => (resultRefs.current[index] = el)}
-                className={`result-item ${index === selectedIndex ? "selected" : ""}`}
-                onClick={() => copyToClipboard(result.content)}
-              >
-                <div className="result-content">
-                  {highlightText(getWindowedContent(result.content, query), query)}
-                </div>
-                <div className="result-meta">
-                  <span className="result-time">
-                    {formatTimestamp(result.timestamp)}
-                  </span>
-                  <span className="result-type">{result.content_type}</span>
-                </div>
+            {!loading && results.length === 0 && (
+              <div className="empty-state">
+                {query ? "No matches found" : "No clipboard history yet"}
               </div>
-            ))}
+            )}
+
+            {!loading && results.length > 0 && (
+              <div className="results-list">
+                {results.map((result, index) => (
+                  <div
+                    key={result.id}
+                    ref={el => (resultRefs.current[index] = el)}
+                    className={`result-item ${index === selectedIndex ? "selected" : ""}`}
+                    onClick={() => setSelectedIndex(index)}
+                  >
+                    <div className="result-content">
+                      {result.content_type.startsWith('image/') ? (
+                        <div className="image-result">
+                          <img
+                            src={`data:${result.content_type};base64,${result.content}`}
+                            alt="Clipboard image"
+                            className="result-image-thumbnail"
+                          />
+                          <div className="image-info">
+                            Image ({Math.round(result.content.length * 0.75 / 1024)} KB)
+                          </div>
+                        </div>
+                      ) : (
+                        highlightText(getWindowedContent(result.content, query), query)
+                      )}
+                    </div>
+                    <div className="result-meta">
+                      <span className="result-time">
+                        {formatTimestamp(result.timestamp)}
+                      </span>
+                      <span className="result-type">{result.content_type}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        <PreviewPane
+          selectedItem={results[selectedIndex] || null}
+          onCopy={copyToClipboard}
+        />
       </div>
 
       <div className="help-text">
@@ -367,6 +635,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {copiedToast && <div className="copy-notification">Copied!</div>}
     </div>
   );
 }

@@ -9,7 +9,6 @@
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist"
   },
-
   "app": {
     "windows": [
       {
@@ -20,7 +19,6 @@
         "visible": false
       }
     ],
-
     "security": {
       "csp": null
     },
