@@ -31,6 +31,7 @@ async fn search_clipboard(
         .map_err(|_| "Vault lock poisoned")?
         .list(None)
         .map_err(|e| e.to_string())?;
+    println!("items: {:?}", items);
 
     let results: Vec<SearchResult> = items
         .into_iter()
@@ -93,18 +94,16 @@ fn show_search_window(app: &AppHandle) {
     }
 }
 
-fn main() {
+fn run() {
     // Initialize vault
     let db_path = default_db_path();
 
-    // Ensure the database directory exists
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).expect("Failed to create database directory");
     }
 
     // For now, use a default password - in production this should be handled properly
-    let vault =
-        SqliteVault::open(&db_path, "default_password").expect("Failed to initialize vault");
+    let vault = SqliteVault::open(&db_path, "puthen123").expect("Failed to initialize vault");
 
     let app_state = AppState {
         vault: Arc::new(Mutex::new(vault)),
@@ -119,7 +118,6 @@ fn main() {
             let app_handle = app.handle().clone();
 
             let gs = app.global_shortcut();
-            gs.register("Shift+Cmd+C")?;
             gs.on_shortcut("Shift+Cmd+C", move |_, _, _| {
                 show_search_window(&app_handle);
             })?;
