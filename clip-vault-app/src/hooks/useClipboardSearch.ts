@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ClipboardService } from "../services/clipboardService";
 import type { SearchResult } from "../types";
 
@@ -7,6 +7,8 @@ export const useClipboardSearch = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const searchClipboard = useCallback(async (searchQuery: string) => {
     try {
@@ -48,8 +50,29 @@ export const useClipboardSearch = () => {
     }
   }, []);
 
+  // Debounced search effect
   useEffect(() => {
-    searchClipboard(query);
+    // Cancel previous debounce timer
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Cancel previous search request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Set up new debounce timer
+    debounceRef.current = setTimeout(() => {
+      searchClipboard(query);
+    }, query.length === 0 ? 0 : 300); // Immediate for empty query, 300ms for others
+
+    // Cleanup function
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
   }, [query, searchClipboard]);
 
   return {

@@ -1,5 +1,9 @@
-import React, { useRef, useEffect, memo } from "react";
+import React, { useRef, useEffect, memo, useMemo } from "react";
 import type { ResultsListProps } from "../types";
+
+// Text processing cache for performance
+const TEXT_PROCESSING_CACHE = new Map<string, any>();
+const CACHE_SIZE_LIMIT = 200;
 
 export const ResultsList: React.FC<ResultsListProps> = ({
   results,
@@ -16,35 +20,76 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   useEffect(() => {
     const activeEl = resultRefs.current[selectedIndex];
     if (activeEl) {
-      activeEl.scrollIntoView({
-        behavior: "instant",
-        block: "nearest",
+      // Use a slight delay to ensure smooth scrolling feels natural
+      requestAnimationFrame(() => {
+        activeEl.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest"
+        });
       });
     }
   }, [selectedIndex]);
 
-  const Row = memo(({ index }: { index: number }) => {
-    const result = results[index];
+  const Row = memo(({ result, index, isSelected }: { result: any, index: number, isSelected: boolean }) => {
+    const processedContent = useMemo(() => {
+      if (result.content_type.startsWith('image/')) {
+        return {
+          type: 'image',
+          content: result.content,
+          contentType: result.content_type,
+          size: Math.round(result.content.length * 0.75 / 1024)
+        };
+      }
+
+      const cacheKey = `${result.id}-${query}`;
+      const cached = TEXT_PROCESSING_CACHE.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const windowedContent = getWindowedContent(result.content, query);
+      const highlighted = highlightText(windowedContent, query);
+      
+      const processed = {
+        type: 'text',
+        content: highlighted
+      };
+
+      // Cache management
+      if (TEXT_PROCESSING_CACHE.size >= CACHE_SIZE_LIMIT) {
+        const firstKey = TEXT_PROCESSING_CACHE.keys().next().value;
+        if (firstKey) {
+          TEXT_PROCESSING_CACHE.delete(firstKey);
+        }
+      }
+      TEXT_PROCESSING_CACHE.set(cacheKey, processed);
+      
+      return processed;
+    }, [result.content, result.content_type, result.id, query]);
+
     return (
       <div
         ref={el => {
           if (el) resultRefs.current[index] = el;
         }}
-        className={`result-item ${index === selectedIndex ? "selected" : ""}`}
+        className={`result-item ${isSelected ? "selected" : ""}`}
         onClick={() => onSelect(index)}
       >
         <div className="result-content">
-          {result.content_type.startsWith('image/') ? (
+          {processedContent.type === 'image' ? (
             <div className="image-result">
               <img
-                src={`data:${result.content_type};base64,${result.content}`}
+                src={`data:${processedContent.contentType};base64,${processedContent.content}`}
                 alt="Clipboard image"
                 className="result-image-thumbnail"
+                loading="lazy"
+                style={{ imageRendering: 'auto' }}
               />
-              <div className="image-info">Image ({Math.round(result.content.length * 0.75 / 1024)} KB)</div>
+              <div className="image-info">Image ({processedContent.size} KB)</div>
             </div>
           ) : (
-            highlightText(getWindowedContent(result.content, query), query)
+            processedContent.content
           )}
         </div>
         <div className="result-meta">
@@ -63,8 +108,13 @@ export const ResultsList: React.FC<ResultsListProps> = ({
         </div>
       ) : (
         <div className="results-list">
-          {results.map((_, idx) => (
-            <Row key={results[idx].id} index={idx} />
+          {results.map((result, idx) => (
+            <Row
+              key={result.id}
+              result={result}
+              index={idx}
+              isSelected={idx === selectedIndex}
+            />
           ))}
         </div>
       )}

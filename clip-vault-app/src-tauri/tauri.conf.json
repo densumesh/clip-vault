@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "clip-vault-app",
+  "productName": "Clip Vault",
   "version": "0.1.0",
   "identifier": "com.clip-vault-app.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "clip-vault-app",
+        "title": "Clip Vault",
         "width": 800,
         "height": 600,
         "visible": false
