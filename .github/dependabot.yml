@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Enable version updates for Rust dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      tauri:
+        patterns:
+          - "tauri*"
+      core-deps:
+        patterns:
+          - "clip-vault-*"
+
+  # Enable version updates for Node.js dependencies
+  - package-ecosystem: "npm"
+    directory: "/clip-vault-app"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      tauri:
+        patterns:
+          - "@tauri-apps/*"
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      build-tools:
+        patterns:
+          - "vite*"
+          - "typescript"
+          - "@vitejs/*"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
