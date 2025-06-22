@@ -7,7 +7,6 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use lazy_static::lazy_static;
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
@@ -20,6 +19,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::io;
+use std::sync::LazyLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, process::Command};
 use syntect::{
@@ -385,10 +385,10 @@ impl App {
 
     fn copy_text_to_clipboard(text: &str) -> Result<()> {
         let mut clipboard = arboard::Clipboard::new()
-            .map_err(|e| clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+            .map_err(|e| clip_vault_core::Error::Io(io::Error::other(e)))?;
         clipboard
             .set_text(text)
-            .map_err(|e| clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+            .map_err(|e| clip_vault_core::Error::Io(io::Error::other(e)))?;
         Ok(())
     }
 
@@ -668,7 +668,9 @@ impl App {
                         )];
 
                         // Add search highlighting if in search mode
-                        if !self.search_query.is_empty() {
+                        if self.search_query.is_empty() {
+                            spans.push(Span::raw(preview));
+                        } else {
                             let search_lower = self.search_query.to_lowercase();
                             let preview_lower = preview.to_lowercase();
 
@@ -691,8 +693,6 @@ impl App {
                             } else {
                                 spans.push(Span::raw(preview.clone()));
                             }
-                        } else {
-                            spans.push(Span::raw(preview));
                         }
 
                         Line::from(spans)
@@ -896,11 +896,9 @@ impl App {
     }
 }
 
-// Helper for syntect initialization (lazy static)
-lazy_static! {
-    static ref SYNTAX_SET: SyntaxSet = SyntaxSet::load_defaults_newlines();
-    static ref THEME_SET: ThemeSet = ThemeSet::load_defaults();
-}
+/// Global syntax and theme sets, initialized on first use without `lazy_static`.
+pub static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
+pub static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 fn syn_color_to_tui(c: syntect::highlighting::Color) -> Color {
     Color::Rgb(c.r, c.g, c.b)

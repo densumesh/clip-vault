@@ -93,7 +93,7 @@ fn obtain_key(rem: Option<StdDuration>, forget: bool) -> Result<String> {
     let pass = Password::new()
         .with_prompt(prompt)
         .interact()
-        .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        .map_err(|e| Error::Io(std::io::Error::other(e)))?;
 
     // write cache
     let duration = rem.unwrap_or_else(|| StdDuration::from_secs(15 * 60));
@@ -235,7 +235,7 @@ fn cmd_setup() -> Result<()> {
         .join(format!("{label}.plist"));
     std::fs::create_dir_all(plist_path.parent().unwrap())?;
     plist::to_file_xml(&plist_path, &plist)
-        .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        .map_err(|e| Error::Io(std::io::Error::other(e)))?;
 
     // load & start
     let service = launchctl::Service::builder()

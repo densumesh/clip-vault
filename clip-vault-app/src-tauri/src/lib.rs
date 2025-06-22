@@ -9,10 +9,20 @@ mod commands;
 mod modules;
 mod state;
 
-use commands::*;
+use commands::{
+    check_vault_status, copy_to_clipboard, daemon_status, delete_item, get_settings,
+    open_settings_window, quit_app, save_settings, search_clipboard, start_daemon, stop_daemon,
+    unlock_vault, update_item,
+};
 use modules::{system_tray::create_system_tray, window_manager::show_search_window};
 use state::AppState;
 
+/// Bootstraps the Tauri application.
+///
+/// # Panics
+/// Panics if the application context cannot be created, a required directory
+/// cannot be created, or if the Tauri runtime fails to start.
+#[allow(clippy::missing_panics_doc)]
 pub fn run() {
     // Initialize directory for vault but don't create vault yet
     let db_path = default_db_path();
@@ -30,7 +40,7 @@ pub fn run() {
         .setup(|app| {
             // Hide the main window immediately
             if let Some(main_window) = app.get_webview_window("main") {
-                let _ = main_window.hide();
+                main_window.hide().ok();
             }
 
             // Create system tray

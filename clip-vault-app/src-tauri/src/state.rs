@@ -61,6 +61,6 @@ pub fn current_timestamp() -> u64 {
 
 pub fn is_session_expired(session: &SessionInfo, auto_lock_minutes: u32) -> bool {
     let now = current_timestamp();
-    let session_duration_secs = (auto_lock_minutes as u64) * 60;
+    let session_duration_secs = u64::from(auto_lock_minutes) * 60;
     now > session.last_activity + session_duration_secs
 }

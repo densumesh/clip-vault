@@ -9,8 +9,8 @@ use tracing::{info, warn};
 use crate::state::DaemonState;
 
 pub fn start_clipboard_monitoring(
-    vault: Arc<Mutex<Option<SqliteVault>>>,
-    daemon: Arc<Mutex<DaemonState>>,
+    vault: &Arc<Mutex<Option<SqliteVault>>>,
+    daemon: &Arc<Mutex<DaemonState>>,
     poll_interval_ms: u64,
     app_handle: AppHandle,
 ) -> Result<(), String> {
@@ -48,14 +48,11 @@ pub fn start_clipboard_monitoring(
                     info!("Clipboard monitoring shutdown requested");
                     break;
                 }
-                _ = tokio::time::sleep(poll_duration) => {
+                () = tokio::time::sleep(poll_duration) => {
                     // Check if vault is still available
-                    let vault_guard = match vault_clone.lock() {
-                        Ok(guard) => guard,
-                        Err(_) => {
-                            warn!("Vault lock poisoned, stopping daemon");
-                            break;
-                        }
+                    let Ok(vault_guard) = vault_clone.lock() else {
+                        warn!("Vault lock poisoned, stopping daemon");
+                        break;
                     };
 
                     if vault_guard.is_none() {
@@ -81,7 +78,7 @@ pub fn start_clipboard_monitoring(
                     if let Some(item) = clipboard_item {
                         let hash = item.hash();
 
-                        if last_hash.map_or(true, |h| h != hash) {
+                        if last_hash != Some(hash) {
                             let item_description = match &item {
                                 ClipboardItem::Text(t) => format!("text: {}…", t.chars().take(40).collect::<String>()),
                                 ClipboardItem::Image(data) => format!("image: {} bytes", data.len()),
@@ -101,7 +98,7 @@ pub fn start_clipboard_monitoring(
                                     }
 
                                     // Emit event to frontend about new clipboard item
-                                    let _ = app_handle.emit("clipboard-updated", ());
+                                    app_handle.emit("clipboard-updated", ()).ok();
 
                                     info!("New clipboard item stored successfully");
                                 }
@@ -125,7 +122,7 @@ pub fn start_clipboard_monitoring(
     Ok(())
 }
 
-pub fn stop_clipboard_monitoring(daemon: Arc<Mutex<DaemonState>>) -> Result<(), String> {
+pub fn stop_clipboard_monitoring(daemon: &Arc<Mutex<DaemonState>>) -> Result<(), String> {
     let mut daemon_guard = daemon.lock().map_err(|_| "Daemon lock poisoned")?;
 
     if !daemon_guard.is_running {
@@ -133,7 +130,7 @@ pub fn stop_clipboard_monitoring(daemon: Arc<Mutex<DaemonState>>) -> Result<(), 
     }
 
     if let Some(sender) = daemon_guard.shutdown_sender.take() {
-        let _ = sender.send(());
+        sender.send(()).ok();
     }
 
     daemon_guard.is_running = false;

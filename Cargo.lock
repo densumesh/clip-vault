@@ -806,7 +806,6 @@ dependencies = [
  "dirs",
  "humantime",
  "launchctl",
- "lazy_static",
  "plist",
  "ratatui",
  "rpassword",

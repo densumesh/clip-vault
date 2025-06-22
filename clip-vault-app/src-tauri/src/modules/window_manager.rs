@@ -2,10 +2,10 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub fn show_search_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("search") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        window.show().ok();
+        window.set_focus().ok();
     } else {
-        let _window =
+        let _unused_window =
             WebviewWindowBuilder::new(app, "search", WebviewUrl::App("static/index.html".into()))
                 .title("Clip Vault Search")
                 .inner_size(1000.0, 600.0)
@@ -23,10 +23,10 @@ pub fn show_search_window(app: &AppHandle) {
 
 pub fn show_settings_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        window.show().ok();
+        window.set_focus().ok();
     } else {
-        let _window = WebviewWindowBuilder::new(
+        let _unused_window = WebviewWindowBuilder::new(
             app,
             "settings",
             WebviewUrl::App("static/settings.html".into()),

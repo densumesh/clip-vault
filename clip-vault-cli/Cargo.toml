@@ -26,7 +26,6 @@ chrono-humanize = "0.2"                                                    # For
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 syntect = "5"
-lazy_static = "1.4"
 
 [lints.clippy]
 pedantic = "warn"

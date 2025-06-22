@@ -44,7 +44,7 @@ pub fn create_system_tray(app: &AppHandle) -> tauri::Result<()> {
                 tauri::async_runtime::spawn(async move {
                     if let Some(state) = app_handle.try_state::<AppState>() {
                         if let Err(e) = start_daemon(state, app_handle.clone()).await {
-                            eprintln!("Failed to start daemon: {}", e);
+                            eprintln!("Failed to start daemon: {e}");
                         }
                     }
                 });
@@ -54,7 +54,7 @@ pub fn create_system_tray(app: &AppHandle) -> tauri::Result<()> {
                 tauri::async_runtime::spawn(async move {
                     if let Some(state) = app_handle.try_state::<AppState>() {
                         if let Err(e) = stop_daemon(state).await {
-                            eprintln!("Failed to stop daemon: {}", e);
+                            eprintln!("Failed to stop daemon: {e}");
                         }
                     }
                 });

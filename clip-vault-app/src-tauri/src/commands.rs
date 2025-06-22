@@ -1,3 +1,5 @@
+#![allow(clippy::used_underscore_binding)]
+
 use arboard::ImageData;
 use base64::engine::general_purpose;
 use base64::Engine;
@@ -85,7 +87,7 @@ pub async fn copy_to_clipboard(content: String, content_type: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn delete_item(_timestamp: u64, _state: State<'_, AppState>) -> Result<(), String> {
+pub async fn delete_item(_: u64, _: State<'_, AppState>) -> Result<(), String> {
     // Note: This would require adding a delete method to the Vault trait
     // For now, return an error indicating it's not implemented
     Err("Delete functionality not yet implemented in vault".to_string())
@@ -149,17 +151,12 @@ pub async fn unlock_vault(
                 settings.poll_interval_ms
             };
 
-            start_clipboard_monitoring(
-                state.vault.clone(),
-                state.daemon.clone(),
-                poll_interval,
-                app,
-            )?;
+            start_clipboard_monitoring(&state.vault, &state.daemon, poll_interval, app)?;
 
             Ok(true)
         }
         Err(e) => {
-            eprintln!("Failed to unlock vault: {}", e);
+            eprintln!("Failed to unlock vault: {e}");
             Ok(false)
         }
     }
@@ -223,17 +220,13 @@ pub async fn start_daemon(state: State<'_, AppState>, app: AppHandle) -> Result<
         settings.poll_interval_ms
     };
 
-    start_clipboard_monitoring(
-        state.vault.clone(),
-        state.daemon.clone(),
-        poll_interval,
-        app,
-    )
+    start_clipboard_monitoring(&state.vault, &state.daemon, poll_interval, app)?;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn stop_daemon(state: State<'_, AppState>) -> Result<(), String> {
-    stop_clipboard_monitoring(state.daemon.clone())
+    stop_clipboard_monitoring(&state.daemon)
 }
 
 #[tauri::command]
@@ -264,7 +257,7 @@ pub async fn update_item(
     vault.update(arr, &new_item).map_err(|e| e.to_string())?;
 
     // Emit event to refresh search results
-    let _ = app.emit("clipboard-updated", ());
+    app.emit("clipboard-updated", ()).ok();
 
     info!("Item updated successfully");
     Ok(())
