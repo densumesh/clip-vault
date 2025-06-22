@@ -22,6 +22,8 @@ export interface SearchInputProps {
   onQueryChange: (query: string) => void;
   loading: boolean;
   resultsCount: number;
+  searching: boolean;
+  setSearching: (searching: boolean) => void;
 }
 
 export interface ResultsListProps {

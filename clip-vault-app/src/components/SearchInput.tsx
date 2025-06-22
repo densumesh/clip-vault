@@ -6,6 +6,8 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   onQueryChange,
   loading,
   resultsCount,
+  searching,
+  setSearching,
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -13,6 +15,19 @@ export const SearchInput: React.FC<SearchInputProps> = ({
     // Focus input when component mounts
     searchInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (searching) {
+      searchInputRef.current?.focus();
+    }
+  }, [searching]);
+
+  useEffect(() => {
+    if (!searchInputRef.current) return;
+    searchInputRef.current.addEventListener("blur", () => {
+      setSearching(false);
+    });
+  }, [setSearching]);
 
   return (
     <div className="search-container" data-tauri-drag-region>

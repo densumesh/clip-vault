@@ -8,6 +8,7 @@ interface UseKeyboardNavigationProps {
   setSelectedIndex: (index: number) => void;
   onCopy: (content: string, contentType: string) => void;
   showPasswordPrompt: boolean;
+  setSearching: (searching: boolean) => void;
 }
 
 export const useKeyboardNavigation = ({
@@ -16,6 +17,7 @@ export const useKeyboardNavigation = ({
   setSelectedIndex,
   onCopy,
   showPasswordPrompt,
+  setSearching,
 }: UseKeyboardNavigationProps) => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't handle shortcuts if modals are open
@@ -35,6 +37,9 @@ export const useKeyboardNavigation = ({
       if (results[selectedIndex]) {
         onCopy(results[selectedIndex].content, results[selectedIndex].content_type);
       }
+    } else if (e.key === "/") {
+      e.preventDefault();
+      setSearching(true);
     }
   }, [results, selectedIndex, setSelectedIndex, onCopy, showPasswordPrompt]);
 

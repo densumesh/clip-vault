@@ -23,7 +23,7 @@ import { formatTimestamp, getWindowedContent, highlightText } from "./utils/text
 
 function App() {
   const [copiedToast, setCopiedToast] = useState(false);
-
+  const [searching, setSearching] = useState(true);
   // Custom hooks
   const {
     query,
@@ -62,6 +62,7 @@ function App() {
     setSelectedIndex,
     onCopy: handleCopy,
     showPasswordPrompt,
+    setSearching,
   });
 
   // Clipboard updates
@@ -109,6 +110,8 @@ function App() {
         onQueryChange={setQuery}
         loading={loading}
         resultsCount={results.length}
+        searching={searching}
+        setSearching={setSearching}
       />
 
       <div className="main-content">
