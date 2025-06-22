@@ -48,7 +48,7 @@ impl From<rusqlite::Error> for Error {
 
 impl From<std::time::SystemTimeError> for Error {
     fn from(e: std::time::SystemTimeError) -> Self {
-        Self::Io(io::Error::new(io::ErrorKind::Other, e))
+        Self::Io(io::Error::other(e))
     }
 }
 
