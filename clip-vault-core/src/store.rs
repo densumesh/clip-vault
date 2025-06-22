@@ -5,6 +5,8 @@ pub trait Vault {
     fn latest(&self) -> Result<Option<ClipboardItem>>;
     fn list(&self, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
     fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
+    fn update(&self, old_hash: [u8; 32], new_item: &ClipboardItem) -> Result<()>;
+    fn delete(&self, hash: [u8; 32]) -> Result<()>;
 
     fn len(&self) -> Result<usize>;
 
@@ -148,5 +150,36 @@ impl Vault for SqliteVault {
             .conn
             .query_row("SELECT COUNT(*) FROM items;", [], |row| row.get(0))?;
         Ok(usize::try_from(count).unwrap())
+    }
+
+    fn update(&self, old_hash: [u8; 32], new_item: &ClipboardItem) -> Result<()> {
+        let new_hash = new_item.hash();
+        let (text, mime) = new_item.clone().into_parts();
+        let timestamp = u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        )
+        .unwrap();
+
+        self.conn.execute(
+            "UPDATE items SET hash = ?1, mime = ?2, text = ?3, data = ?4, ts = ?5 WHERE hash = ?6;",
+            params![
+                &new_hash[..],
+                mime,
+                text,
+                bincode::serialize(new_item)?,
+                timestamp,
+                &old_hash[..]
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn delete(&self, hash: [u8; 32]) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM items WHERE hash = ?1;", params![&hash[..]])?;
+        Ok(())
     }
 }

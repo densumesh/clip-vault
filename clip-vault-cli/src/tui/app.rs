@@ -1,13 +1,13 @@
 use chrono_humanize::{Accuracy, HumanTime, Tense};
 use clip_vault_core::{ClipboardItem, ClipboardItemWithTimestamp, Result, SqliteVault, Vault};
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use crossterm::terminal;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEvent, MouseEventKind};
 use crossterm::{
     cursor::{Hide, Show},
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use lazy_static::lazy_static;
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
@@ -22,6 +22,12 @@ use ratatui::{
 use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, process::Command};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::ThemeSet,
+    parsing::{SyntaxReference, SyntaxSet},
+    util::LinesWithEndings,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
@@ -39,6 +45,8 @@ pub struct App {
     search_query: String,
     search_cursor: usize,
     preview_text: String,
+    preview_lines: Vec<ratatui::text::Line<'static>>,
+    preview_offset: usize,
     should_quit: bool,
     status_message: String,
     scrollbar_state: ScrollbarState,
@@ -55,6 +63,8 @@ impl App {
             search_query: String::new(),
             search_cursor: 0,
             preview_text: String::new(),
+            preview_lines: Vec::new(),
+            preview_offset: 0,
             should_quit: false,
             status_message: "Welcome to Clip Vault! Press ? for help".to_string(),
             scrollbar_state: ScrollbarState::default(),
@@ -126,6 +136,8 @@ impl App {
                         Mode::Preview => self.handle_preview_input(key.code, terminal)?,
                     }
                 }
+            } else if let Event::Mouse(mouse) = event::read()? {
+                self.handle_mouse_input(mouse);
             }
 
             if self.should_quit {
@@ -146,6 +158,7 @@ impl App {
             KeyCode::PageUp => self.page_up(),
             KeyCode::Char('/') => self.enter_search_mode(),
             KeyCode::Char('c') => self.copy_selected_item()?,
+            KeyCode::Char('d') => self.delete_selected_item()?,
             KeyCode::Enter | KeyCode::Char(' ') => self.preview_selected_item(),
             KeyCode::Char('r') => self.refresh_items()?,
             KeyCode::Char('?') => self.show_help(),
@@ -182,7 +195,25 @@ impl App {
         match key {
             KeyCode::Esc | KeyCode::Char('q') => self.exit_preview_mode(),
             KeyCode::Char('c') => self.copy_selected_item()?,
+            KeyCode::Char('d') => self.delete_selected_item()?,
             KeyCode::Char('e') => self.edit_selected_item(terminal)?,
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.preview_offset > 0 {
+                    self.preview_offset -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.preview_offset + 1 < self.preview_lines.len() {
+                    self.preview_offset += 1;
+                }
+            }
+            KeyCode::PageUp => {
+                self.preview_offset = self.preview_offset.saturating_sub(10);
+            }
+            KeyCode::PageDown => {
+                self.preview_offset =
+                    (self.preview_offset + 10).min(self.preview_lines.len().saturating_sub(1));
+            }
             _ => {}
         }
         Ok(())
@@ -336,12 +367,7 @@ impl App {
             if let Some(item_with_ts) = self.filtered_items.get(selected) {
                 match &item_with_ts.item {
                     ClipboardItem::Text(text) => {
-                        let mut clipboard = arboard::Clipboard::new().map_err(|e| {
-                            clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e))
-                        })?;
-                        clipboard.set_text(text.clone()).map_err(|e| {
-                            clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e))
-                        })?;
+                        Self::copy_text_to_clipboard(&text.clone())?;
                         self.status_message = "Copied to clipboard!".to_string();
                     }
                 }
@@ -350,16 +376,28 @@ impl App {
         Ok(())
     }
 
+    fn copy_text_to_clipboard(text: &str) -> Result<()> {
+        let mut clipboard = arboard::Clipboard::new()
+            .map_err(|e| clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+        clipboard
+            .set_text(text)
+            .map_err(|e| clip_vault_core::Error::Io(io::Error::new(io::ErrorKind::Other, e)))?;
+        Ok(())
+    }
+
     fn preview_selected_item(&mut self) {
         if let Some(selected) = self.list_state.selected() {
             if let Some(item_with_ts) = self.filtered_items.get(selected) {
-                match &item_with_ts.item {
-                    ClipboardItem::Text(text) => {
-                        self.preview_text = text.clone();
-                        self.mode = Mode::Preview;
-                        self.status_message =
-                            "Preview mode - press Esc to return, 'c' to copy".to_string();
-                    }
+                // Extract text without holding the immutable borrow during mutable operations
+                let txt = match &item_with_ts.item {
+                    ClipboardItem::Text(t) => Some(t.clone()),
+                };
+
+                if let Some(t) = txt {
+                    self.prepare_preview(&t);
+                    self.mode = Mode::Preview;
+                    self.status_message =
+                        "Preview mode - press Esc to return, 'c' to copy".to_string();
                 }
             }
         }
@@ -368,24 +406,25 @@ impl App {
     fn exit_preview_mode(&mut self) {
         self.mode = Mode::Normal;
         self.preview_text.clear();
+        self.preview_lines.clear();
+        self.preview_offset = 0;
         self.status_message = "Welcome to Clip Vault! Press ? for help".to_string();
     }
 
     /// Launch $EDITOR with the current item, save changes back to the vault.
     fn edit_selected_item<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
-        let selected = match self.list_state.selected() {
-            Some(i) => i,
-            None => return Ok(()),
+        let Some(selected) = self.list_state.selected() else {
+            return Ok(());
         };
 
-        let item_with_ts = match self.filtered_items.get(selected) {
-            Some(it) => it,
-            None => return Ok(()),
+        let Some(item_with_ts) = self.filtered_items.get(selected) else {
+            return Ok(());
         };
 
         let original_text = match &item_with_ts.item {
             ClipboardItem::Text(t) => t.clone(),
         };
+        let original_hash = item_with_ts.item.hash();
 
         // temp file path
         let mut path = std::env::temp_dir();
@@ -417,11 +456,12 @@ impl App {
         }
 
         let new_item = ClipboardItem::Text(new_text.clone());
-        let hash = new_item.hash();
-        self.vault.insert(hash, &new_item)?;
+        self.vault.update(original_hash, &new_item)?;
 
-        // refresh lists
+        // refresh lists and preview view
         self.load_items()?;
+        Self::copy_text_to_clipboard(&new_text)?;
+        self.prepare_preview(&new_text);
         self.status_message = "Saved changes to vault".into();
         Ok(())
     }
@@ -490,10 +530,7 @@ impl App {
                     month += 1;
                 }
 
-                return format!(
-                    "{:02}/{:02} {:02}:{:02}",
-                    month, day_in_month, hours, minutes
-                );
+                return format!("{month:02}/{day_in_month:02} {hours:02}:{minutes:02}");
             }
         }
 
@@ -686,14 +723,20 @@ impl App {
         }
     }
 
-    fn render_preview(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+    fn render_preview(&mut self, f: &mut Frame, area: ratatui::layout::Rect) {
         let title = String::from("Preview (Esc to close, 'c' to copy, 'e' to edit)");
 
         let block = Block::default().title(title).borders(Borders::ALL);
 
-        let mut paragraph = Paragraph::new(self.preview_text.as_str())
+        // Determine visible lines
+        let height = area.height.saturating_sub(2) as usize; // border padding
+        let end = (self.preview_offset + height).min(self.preview_lines.len());
+        let slice = &self.preview_lines[self.preview_offset..end];
+
+        let paragraph = Paragraph::new(slice.to_vec())
             .block(block)
-            .style(Style::default().fg(Color::White));
+            .style(Style::default().fg(Color::White))
+            .wrap(Wrap { trim: false });
 
         f.render_widget(Clear, area);
         f.render_widget(paragraph, area);
@@ -729,4 +772,109 @@ impl App {
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(help, footer_chunks[1]);
     }
+
+    /// Prepare highlighted lines for preview and reset scroll offset
+    fn prepare_preview(&mut self, text: &str) {
+        self.preview_text = text.to_string();
+
+        // Detect fenced code block and language
+        let (code_lang, code_body) = if let Some(first_line) = text.lines().next() {
+            if first_line.starts_with("```") {
+                let lang = first_line.trim_start_matches("```").trim();
+                let body = text.lines().skip(1).collect::<Vec<_>>().join("\n");
+                (Some(lang.to_string()), body)
+            } else {
+                (None, text.to_string())
+            }
+        } else {
+            (None, text.to_string())
+        };
+
+        let mut lines: Vec<ratatui::text::Line<'static>> = Vec::new();
+
+        if let Some(lang_token) = code_lang {
+            // Syntax highlight using syntect
+            let ss: &SyntaxSet = &SYNTAX_SET;
+            let theme = &THEME_SET.themes["base16-ocean.dark"];
+            let syntax: &SyntaxReference = ss
+                .find_syntax_by_token(&lang_token)
+                .unwrap_or_else(|| ss.find_syntax_plain_text());
+            let mut h = HighlightLines::new(syntax, theme);
+
+            for line in LinesWithEndings::from(&code_body) {
+                let ranges = h.highlight_line(line, ss).unwrap_or_default();
+                let mut spans = Vec::new();
+                for (style, piece) in ranges {
+                    let fg = syn_color_to_tui(style.foreground);
+                    let mut tui_style = Style::default().fg(fg);
+                    if style
+                        .font_style
+                        .contains(syntect::highlighting::FontStyle::BOLD)
+                    {
+                        tui_style = tui_style.add_modifier(Modifier::BOLD);
+                    }
+                    if style
+                        .font_style
+                        .contains(syntect::highlighting::FontStyle::ITALIC)
+                    {
+                        tui_style = tui_style.add_modifier(Modifier::ITALIC);
+                    }
+                    spans.push(Span::styled(piece.to_string(), tui_style));
+                }
+                lines.push(ratatui::text::Line::from(spans));
+            }
+        } else {
+            // Plain text lines
+            for l in code_body.lines() {
+                lines.push(ratatui::text::Line::from(l.to_string()));
+            }
+        }
+
+        self.preview_lines = lines;
+        self.preview_offset = 0;
+    }
+
+    fn handle_mouse_input(&mut self, mouse: MouseEvent) {
+        match mouse.kind {
+            MouseEventKind::ScrollDown => match self.mode {
+                Mode::Preview => {
+                    if self.preview_offset + 1 < self.preview_lines.len() {
+                        self.preview_offset += 1;
+                    }
+                }
+                Mode::Normal | Mode::Search => self.next_item(),
+            },
+            MouseEventKind::ScrollUp => match self.mode {
+                Mode::Preview => {
+                    self.preview_offset = self.preview_offset.saturating_sub(1);
+                }
+                Mode::Normal | Mode::Search => self.previous_item(),
+            },
+            _ => {}
+        }
+    }
+
+    fn delete_selected_item(&mut self) -> Result<()> {
+        let Some(selected) = self.list_state.selected() else {
+            return Ok(());
+        };
+        let Some(item_with_ts) = self.filtered_items.get(selected).cloned() else {
+            return Ok(());
+        };
+        let hash = item_with_ts.item.hash();
+        self.vault.delete(hash)?;
+        self.load_items()?;
+        self.status_message = "Item deleted".into();
+        Ok(())
+    }
+}
+
+// Helper for syntect initialization (lazy static)
+lazy_static! {
+    static ref SYNTAX_SET: SyntaxSet = SyntaxSet::load_defaults_newlines();
+    static ref THEME_SET: ThemeSet = ThemeSet::load_defaults();
+}
+
+fn syn_color_to_tui(c: syntect::highlighting::Color) -> Color {
+    Color::Rgb(c.r, c.g, c.b)
 }
