@@ -1,0 +1,253 @@
+use clip_vault_core::{ClipboardItem, SqliteVault, Vault};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::path::PathBuf;
+use tauri::{AppHandle, Emitter, State};
+use tracing::info;
+
+use crate::modules::clipboard_monitor::{start_clipboard_monitoring, stop_clipboard_monitoring};
+use crate::modules::window_manager::show_settings_window;
+use crate::state::{current_timestamp, is_session_expired, AppSettings, AppState, SessionInfo};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub id: String,
+    pub content: String,
+    pub timestamp: u64,
+    pub content_type: String,
+}
+
+#[tauri::command]
+pub async fn search_clipboard(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SearchResult>, String> {
+    let vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+    let vault = vault_guard.as_ref().ok_or("Vault not unlocked")?;
+
+    let items = vault.list(None).map_err(|e| e.to_string())?;
+
+    let results: Vec<SearchResult> = items
+        .into_iter()
+        .filter(|item| {
+            if query.is_empty() {
+                true
+            } else {
+                match &item.item {
+                    clip_vault_core::ClipboardItem::Text(text) => {
+                        text.to_lowercase().contains(&query.to_lowercase())
+                    }
+                    clip_vault_core::ClipboardItem::Image(_) => {
+                        query.to_lowercase().contains("image")
+                            || query.to_lowercase().contains("png")
+                    }
+                }
+            }
+        })
+        .map(|item| {
+            let (content, content_type) = item.item.clone().into_parts();
+            SearchResult {
+                id: format!("{}", item.timestamp),
+                content,
+                timestamp: item.timestamp,
+                content_type,
+            }
+        })
+        .collect();
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn copy_to_clipboard(content: String, _content_type: String) -> Result<(), String> {
+    use arboard::Clipboard;
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_item(_timestamp: u64, _state: State<'_, AppState>) -> Result<(), String> {
+    // Note: This would require adding a delete method to the Vault trait
+    // For now, return an error indicating it's not implemented
+    Err("Delete functionality not yet implemented in vault".to_string())
+}
+
+#[tauri::command]
+pub async fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
+    let settings = state
+        .settings
+        .lock()
+        .map_err(|_| "Settings lock poisoned")?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+pub async fn save_settings(
+    new_settings: AppSettings,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut settings = state
+        .settings
+        .lock()
+        .map_err(|_| "Settings lock poisoned")?;
+    *settings = new_settings;
+    // TODO: Persist settings to file or config
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn unlock_vault(
+    password: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<bool, String> {
+    let vault_path = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        PathBuf::from(&settings.vault_path)
+    };
+
+    match SqliteVault::open(&vault_path, &password) {
+        Ok(new_vault) => {
+            let mut vault = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+            *vault = Some(new_vault);
+
+            // Create new session
+            let now = current_timestamp();
+            let mut session = state.session.lock().map_err(|_| "Session lock poisoned")?;
+            *session = Some(SessionInfo { last_activity: now });
+            drop(session);
+            drop(vault);
+
+            // Start clipboard monitoring
+            let poll_interval = {
+                let settings = state
+                    .settings
+                    .lock()
+                    .map_err(|_| "Settings lock poisoned")?;
+                settings.poll_interval_ms
+            };
+
+            start_clipboard_monitoring(
+                state.vault.clone(),
+                state.daemon.clone(),
+                poll_interval,
+                app,
+            )?;
+
+            Ok(true)
+        }
+        Err(e) => {
+            eprintln!("Failed to unlock vault: {}", e);
+            Ok(false)
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn check_vault_status(state: State<'_, AppState>) -> Result<bool, String> {
+    // Check if vault is unlocked and session is valid
+    let auto_lock_minutes = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        settings.auto_lock_minutes
+    };
+
+    let mut session_guard = state.session.lock().map_err(|_| "Session lock poisoned")?;
+
+    if let Some(session) = session_guard.as_ref() {
+        if is_session_expired(session, auto_lock_minutes) {
+            // Session expired, clear vault and session
+            *session_guard = None;
+            drop(session_guard);
+
+            let mut vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+            *vault_guard = None;
+            drop(vault_guard);
+
+            Ok(false) // Vault is locked due to expired session
+        } else {
+            // Update last activity
+            if let Some(session) = session_guard.as_mut() {
+                session.last_activity = current_timestamp();
+            }
+            Ok(true) // Vault is unlocked and session is valid
+        }
+    } else {
+        Ok(false) // No active session
+    }
+}
+
+#[tauri::command]
+pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    show_settings_window(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn quit_app(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn start_daemon(state: State<'_, AppState>, app: AppHandle) -> Result<(), String> {
+    let poll_interval = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        settings.poll_interval_ms
+    };
+
+    start_clipboard_monitoring(
+        state.vault.clone(),
+        state.daemon.clone(),
+        poll_interval,
+        app,
+    )
+}
+
+#[tauri::command]
+pub async fn stop_daemon(state: State<'_, AppState>) -> Result<(), String> {
+    stop_clipboard_monitoring(state.daemon.clone())
+}
+
+#[tauri::command]
+pub async fn daemon_status(state: State<'_, AppState>) -> Result<bool, String> {
+    let daemon_guard = state.daemon.lock().map_err(|_| "Daemon lock poisoned")?;
+    Ok(daemon_guard.is_running)
+}
+
+#[tauri::command]
+pub async fn update_item(
+    old_content: String,
+    new_content: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
+    // compute hash of old content (text only)
+    let mut hasher = Sha256::new();
+    hasher.update(old_content.as_bytes());
+    let old_hash = hasher.finalize();
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&old_hash);
+
+    let new_item = ClipboardItem::Text(new_content.clone());
+
+    let vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+    let vault = vault_guard.as_ref().ok_or("Vault not unlocked")?;
+
+    vault.update(arr, &new_item).map_err(|e| e.to_string())?;
+
+    // Emit event to refresh search results
+    let _ = app.emit("clipboard-updated", ());
+
+    info!("Item updated successfully");
+    Ok(())
+}
