@@ -4,7 +4,7 @@ members = [
     "clip-vault-cli",
     "clip-vault-daemon",
     "clip-vault-tests",
-    "clip-vault-app",
+    "clip-vault-app/src-tauri",
 ]
 resolver = "2"
 

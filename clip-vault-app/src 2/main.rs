@@ -31,6 +31,7 @@ async fn search_clipboard(
         .map_err(|_| "Vault lock poisoned")?
         .list(None)
         .map_err(|e| e.to_string())?;
+    println!("items: {:?}", items);
 
     let results: Vec<SearchResult> = items
         .into_iter()
@@ -93,7 +94,7 @@ fn show_search_window(app: &AppHandle) {
     }
 }
 
-pub fn run() {
+fn main() {
     // Initialize vault
     let db_path = default_db_path();
 
