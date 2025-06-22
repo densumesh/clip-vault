@@ -14,9 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
 humantime.workspace = true
-dialoguer.workspace = true
-launchctl = "0.3.2"                               # macOS-only crate, no effect on Linux
-plist = "1"                                       # lets us build the XML safely
+dialoguer.workspace = true                        # lets us build the XML safely
 
 # TUI dependencies
 ratatui = "0.28"

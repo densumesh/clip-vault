@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 use clip_vault_core::{Error, Result, SqliteVault, Vault};
 use dialoguer::Password;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
 
 mod tui;
@@ -43,10 +42,6 @@ enum Commands {
     },
     /// Launch interactive TUI (Terminal User Interface)
     Tui,
-    /// Set up LaunchAgent/Service and vault password
-    Setup,
-    /// Gracefully stop the running daemon
-    Stop,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -130,8 +125,6 @@ fn main() -> Result<()> {
             let key = obtain_key(cli.remember, cli.forget)?;
             cmd_tui(&key)?;
         }
-        Commands::Setup => cmd_setup()?,
-        Commands::Stop => cmd_stop()?,
     }
 
     Ok(())
@@ -201,52 +194,6 @@ fn cmd_tui(key: &str) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn cmd_setup() -> Result<()> {
-    let first = rpassword::prompt_password("Set vault password: ")?;
-    let second = rpassword::prompt_password("Confirm password: ")?;
-    if first != second {
-        eprintln!("Passwords do not match.");
-        std::process::exit(1);
-    }
-
-    let exe = std::env::current_exe()?.with_file_name("clip-vault-daemon");
-    println!("exe: {}", exe.display());
-
-    let label = "com.clip-vault.daemon";
-
-    // Build the LaunchAgent dictionary
-    let plist = serde_json::json!({
-        "Label": label,
-        "ProgramArguments": [exe.to_string_lossy().into_owned()],
-        "EnvironmentVariables": {
-            "CLIP_VAULT_KEY": second,
-            "CLIP_VAULT_FOREGROUND": "1",
-        },
-        "RunAtLoad": true,
-        "KeepAlive": true,
-        "StandardOutPath": "/tmp/clip-vault.out",
-        "StandardErrorPath": "/tmp/clip-vault.err",
-    });
-
-    let plist_path: PathBuf = dirs::home_dir()
-        .unwrap()
-        .join("Library/LaunchAgents")
-        .join(format!("{label}.plist"));
-    std::fs::create_dir_all(plist_path.parent().unwrap())?;
-    plist::to_file_xml(&plist_path, &plist).map_err(|e| Error::Io(std::io::Error::other(e)))?;
-
-    // load & start
-    let service = launchctl::Service::builder()
-        .plist_path(plist_path.to_string_lossy().into_owned())
-        .name(label)
-        .build();
-    service.start()?; // launchctl start
-
-    println!("LaunchAgent installed & started ✅");
-    Ok(())
-}
-
 fn open_store_with_key(key: &str) -> Result<SqliteVault> {
     let path = clip_vault_core::default_db_path();
     std::fs::create_dir_all(path.parent().unwrap())?;
@@ -262,18 +209,4 @@ fn open_store_with_key(key: &str) -> Result<SqliteVault> {
             Err(err)
         }
     }
-}
-
-fn cmd_stop() -> Result<()> {
-    let label = "com.clip-vault.daemon";
-    let plist_path: PathBuf = dirs::home_dir()
-        .unwrap()
-        .join("Library/LaunchAgents")
-        .join(format!("{label}.plist"));
-    let service = launchctl::Service::builder()
-        .plist_path(plist_path.to_string_lossy().into_owned())
-        .name(label)
-        .build();
-    service.stop()?;
-    Ok(())
 }
