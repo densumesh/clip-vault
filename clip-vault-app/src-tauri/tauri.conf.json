@@ -9,17 +9,22 @@
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist"
   },
+
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "clip-vault-app",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "visible": false
       }
     ],
+
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

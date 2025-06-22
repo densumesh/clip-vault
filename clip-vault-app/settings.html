@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clip Vault Settings</title>
+    <style>
+      :root {
+        /* Dark theme (default) */
+        --bg-primary: rgba(26, 26, 26, 0.95);
+        --bg-secondary: #2a2a2a;
+        --bg-tertiary: #0f0f0f;
+        --border-primary: #333;
+        --border-secondary: #444;
+        --border-light: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --text-secondary: #888;
+        --text-tertiary: #666;
+        --accent-primary: #0ea5e9;
+        --accent-hover: #2a2a2a;
+        --accent-selected: #0ea5e9;
+        --shadow-primary: rgba(0, 0, 0, 0.5);
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg-primary: rgba(255, 255, 255, 0.95);
+          --bg-secondary: #f8f9fa;
+          --bg-tertiary: #e9ecef;
+          --border-primary: #dee2e6;
+          --border-secondary: #ced4da;
+          --border-light: rgba(0, 0, 0, 0.1);
+          --text-primary: #212529;
+          --text-secondary: #6c757d;
+          --text-tertiary: #adb5bd;
+          --accent-primary: #0ea5e9;
+          --accent-hover: #f8f9fa;
+          --accent-selected: #0ea5e9;
+          --shadow-primary: rgba(0, 0, 0, 0.15);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 10px;
+        height: 500px;
+      }
+
+      .settings-container {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin-bottom: 24px;
+        font-size: 24px;
+        color: var(--text-primary);
+      }
+
+      .setting-group {
+        margin-bottom: 20px;
+      }
+
+      .setting-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+        font-weight: 500;
+        font-size: 14px;
+      }
+
+      .setting-group input {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-secondary);
+        border-radius: 8px;
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .setting-group input:focus {
+        border-color: var(--accent-primary);
+      }
+
+      .setting-group .description {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .button-group {
+        display: flex;
+        gap: 12px;
+        margin-top: 32px;
+        justify-content: flex-end;
+      }
+
+      button {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+      }
+
+      .button-secondary {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-secondary);
+      }
+
+      .button-secondary:hover {
+        background: var(--accent-hover);
+      }
+
+      .button-primary {
+        background: var(--accent-primary);
+        color: white;
+      }
+
+      .button-primary:hover {
+        opacity: 0.9;
+      }
+
+      .success-message {
+        margin-top: 8px;
+        margin-bottom: 8px;
+        padding: 12px;
+        background: #059669;
+        color: white;
+        border-radius: 6px;
+        text-align: center;
+        display: none;
+        transition: display 0.3s;
+      }
+
+      .success-message.show {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="settings-container">
+      <h1>Clip Vault Settings</h1>
+      <div id="success-message" class="success-message">
+        Settings saved successfully!
+      </div>
+      <div class="setting-group">
+        <label for="poll-interval">Poll Interval (ms):</label>
+        <input
+          id="poll-interval"
+          type="number"
+          min="50"
+          max="5000"
+          value="100" />
+        <div class="description">How often to check for clipboard changes</div>
+      </div>
+
+      <div class="setting-group">
+        <label for="vault-path">Vault Path:</label>
+        <input id="vault-path" type="text" value="" />
+        <div class="description">Location of the encrypted database file</div>
+      </div>
+
+      <div class="setting-group">
+        <label for="auto-lock">Auto-lock (minutes):</label>
+        <input id="auto-lock" type="number" min="1" max="1440" value="60" />
+        <div class="description">Automatically lock vault after inactivity</div>
+      </div>
+
+      <div class="button-group">
+        <button class="button-secondary" onclick="closeWindow()">Cancel</button>
+        <button class="button-primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+
+    <script type="module">
+      import { invoke } from "@tauri-apps/api/core";
+      import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+
+      let currentSettings = {
+        poll_interval_ms: 100,
+        vault_path: "",
+        auto_lock_minutes: 60,
+      };
+
+      async function loadSettings() {
+        try {
+          currentSettings = await invoke("get_settings");
+          document.getElementById("poll-interval").value =
+            currentSettings.poll_interval_ms;
+          document.getElementById("vault-path").value =
+            currentSettings.vault_path;
+          document.getElementById("auto-lock").value =
+            currentSettings.auto_lock_minutes;
+        } catch (error) {
+          console.error("Failed to load settings:", error);
+        }
+      }
+
+      window.saveSettings = async function () {
+        const newSettings = {
+          poll_interval_ms:
+            parseInt(document.getElementById("poll-interval").value) || 100,
+          vault_path: document.getElementById("vault-path").value,
+          auto_lock_minutes:
+            parseInt(document.getElementById("auto-lock").value) || 60,
+        };
+
+        try {
+          await invoke("save_settings", { newSettings });
+
+          // Show success message
+          const successMsg = document.getElementById("success-message");
+          successMsg.classList.add("show");
+          setTimeout(() => {
+            successMsg.classList.remove("show");
+          }, 3000);
+        } catch (error) {
+          console.error("Failed to save settings:", error);
+          alert("Failed to save settings: " + error);
+        }
+      };
+
+      window.closeWindow = function () {
+        const window = getCurrentWebviewWindow();
+        window.close();
+      };
+
+      // Load settings when page loads
+      document.addEventListener("DOMContentLoaded", loadSettings);
+
+      // Handle window close on Escape
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeWindow();
+        }
+      });
+    </script>
+  </body>
+</html>
