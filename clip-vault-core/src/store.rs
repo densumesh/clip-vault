@@ -1,8 +1,10 @@
-use crate::{ClipboardItem, Result};
+use crate::{ClipboardItem, ClipboardItemWithTimestamp, Result};
 
 pub trait Vault {
     fn insert(&self, hash: [u8; 32], item: &ClipboardItem) -> Result<()>;
     fn latest(&self) -> Result<Option<ClipboardItem>>;
+    fn list(&self, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
+    fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
 
     fn len(&self) -> Result<usize>;
 
@@ -22,24 +24,44 @@ impl SqliteVault {
         let conn = Connection::open(path)?;
         conn.pragma_update(None, "key", key)?;
 
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS items (
-                 hash BLOB PRIMARY KEY,
-                 data BLOB NOT NULL,
-                 ts   INTEGER NOT NULL DEFAULT (strftime('%s','now'))
-             );",
-            [],
+        // Ensure all required tables and triggers exist upfront. Using execute_batch so
+        // multiple statements can be executed at once (rusqlite::Connection::execute
+        // runs only the first statement it encounters).
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS items (
+                id      INTEGER PRIMARY KEY,
+                hash    BLOB    UNIQUE NOT NULL,
+                mime    TEXT    NOT NULL,
+                text    TEXT,
+                data    BLOB    NOT NULL,
+                ts      INTEGER NOT NULL
+            );",
         )?;
+
+        // Ensure existing rows are present in the FTS index (no-op if already indexed)
+        let _ = conn.execute("INSERT INTO items_fts(items_fts) VALUES('rebuild');", []);
         Ok(Self { conn })
     }
 }
 
 impl Vault for SqliteVault {
     fn insert(&self, hash: [u8; 32], item: &ClipboardItem) -> Result<()> {
+        let timestamp = u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        )
+        .unwrap();
+
+        let (text, mime) = item.clone().into_parts();
+
         self.conn.execute(
-            "INSERT OR IGNORE INTO items (hash, data) VALUES (?1, ?2);",
-            params![&hash[..], bincode::serialize(item)?],
+            "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5);",
+            params![&hash[..], mime, text, bincode::serialize(item)?, timestamp],
         )?;
+
         Ok(())
     }
 
@@ -50,10 +72,75 @@ impl Vault for SqliteVault {
         let mut rows = stmt.query([])?;
         if let Some(row) = rows.next()? {
             let blob: Vec<u8> = row.get(0)?;
-            Ok(Some(bincode::deserialize(&blob)?))
+            let item: ClipboardItem = bincode::deserialize(&blob)?;
+            Ok(Some(item))
         } else {
             Ok(None)
         }
+    }
+
+    fn list(&self, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>> {
+        let query = match limit {
+            Some(n) => format!("SELECT data, ts FROM items ORDER BY ts DESC LIMIT {n}"),
+            None => "SELECT data, ts FROM items ORDER BY ts DESC".to_string(),
+        };
+
+        let mut stmt = self.conn.prepare(&query)?;
+        let rows = stmt.query_map([], |row| {
+            let blob: Vec<u8> = row.get(0)?;
+            let timestamp: u64 = row.get(1)?;
+            let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Blob,
+                    Box::new(e),
+                )
+            })?;
+            Ok(ClipboardItemWithTimestamp { item, timestamp })
+        })?;
+
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
+    }
+
+    fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>> {
+        // Add wildcards for LIKE pattern matching
+        let like_pattern = format!("%{query}%");
+
+        let sql = match limit {
+            Some(n) => format!(
+                "SELECT data, ts FROM items 
+                WHERE text LIKE ? 
+                ORDER BY ts DESC LIMIT {n}"
+            ),
+            None => "SELECT data, ts FROM items 
+                WHERE text LIKE ? 
+                ORDER BY ts DESC"
+                .into(),
+        };
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map([like_pattern], |row| {
+            let blob: Vec<u8> = row.get(0)?;
+            let timestamp: u64 = row.get(1)?;
+            let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Blob,
+                    Box::new(e),
+                )
+            })?;
+            Ok(ClipboardItemWithTimestamp { item, timestamp })
+        })?;
+
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
     }
 
     fn len(&self) -> Result<usize> {

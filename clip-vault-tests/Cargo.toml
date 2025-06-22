@@ -1,0 +1,19 @@
+[package]
+name = "clip-vault-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clip-vault-core = { path = "../clip-vault-core" }
+
+# Test dependencies
+tempfile = "3.8"
+assert_cmd = "2.0"
+predicates = "3.0"
+serde_json = { workspace = true }
+rusqlite = { workspace = true }
+sha2 = { workspace = true }
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

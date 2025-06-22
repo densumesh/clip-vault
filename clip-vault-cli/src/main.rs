@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
 
+mod tui;
+
 #[derive(Parser)]
 #[command(name = "clip-vault")] // binary name
 #[command(author, version, about)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     /// Remember the password for this long (e.g. 15m, 2h, 1d). Default 15m.
     #[arg(long, value_parser = humantime::parse_duration)]
@@ -25,8 +27,22 @@ struct Cli {
 enum Commands {
     /// Print the latest clipboard entry
     Latest,
-    /// Dummy list (placeholder – hook up DB later)
-    List,
+    /// List clipboard entries (optionally specify how many)
+    List {
+        /// Number of entries to show (default: all)
+        #[arg(short, long)]
+        count: Option<usize>,
+    },
+    /// Search clipboard entries for a text pattern
+    Search {
+        /// Text pattern to search for
+        query: String,
+        /// Maximum number of results to show (default: all matches)
+        #[arg(short, long)]
+        count: Option<usize>,
+    },
+    /// Launch interactive TUI (Terminal User Interface)
+    Tui,
     /// Set up LaunchAgent/Service and vault password
     Setup,
     /// Gracefully stop the running daemon
@@ -97,14 +113,22 @@ fn obtain_key(rem: Option<StdDuration>, forget: bool) -> Result<String> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    match cli.command.unwrap_or(Commands::Tui) {
         Commands::Latest => {
             let key = obtain_key(cli.remember, cli.forget)?;
             cmd_latest(&key)?;
         }
-        Commands::List => {
+        Commands::List { count } => {
             let key = obtain_key(cli.remember, cli.forget)?;
-            cmd_list(&key)?;
+            cmd_list(&key, count)?;
+        }
+        Commands::Search { query, count } => {
+            let key = obtain_key(cli.remember, cli.forget)?;
+            cmd_search(&key, &query, count)?;
+        }
+        Commands::Tui => {
+            let key = obtain_key(cli.remember, cli.forget)?;
+            cmd_tui(&key)?;
         }
         Commands::Setup => cmd_setup()?,
         Commands::Stop => cmd_stop()?,
@@ -123,9 +147,57 @@ fn cmd_latest(key: &str) -> Result<()> {
     Ok(())
 }
 
-fn cmd_list(key: &str) -> Result<()> {
+fn cmd_list(key: &str, count: Option<usize>) -> Result<()> {
     let store = open_store_with_key(key)?;
-    println!("Listing {} entries (unordered):", store.len()?);
+    let items = store.list(count)?;
+
+    if items.is_empty() {
+        println!("No clipboard entries found.");
+        return Ok(());
+    }
+
+    match count {
+        Some(n) => println!("Last {} clipboard entries:", n.min(items.len())),
+        None => println!("All {} clipboard entries:", items.len()),
+    }
+
+    for (i, item) in items.iter().enumerate() {
+        println!("{}. {:?}", i + 1, item);
+    }
+
+    Ok(())
+}
+
+fn cmd_search(key: &str, query: &str, count: Option<usize>) -> Result<()> {
+    let store = open_store_with_key(key)?;
+    let items = store.search(query, count)?;
+
+    if items.is_empty() {
+        println!("No clipboard entries found matching '{query}'.");
+        return Ok(());
+    }
+
+    match count {
+        Some(n) => println!(
+            "Found {} matches for '{}' (showing up to {}):",
+            items.len(),
+            query,
+            n
+        ),
+        None => println!("Found {} matches for '{}':", items.len(), query),
+    }
+
+    for (i, item) in items.iter().enumerate() {
+        println!("{}. {:?}", i + 1, item);
+    }
+
+    Ok(())
+}
+
+fn cmd_tui(key: &str) -> Result<()> {
+    let store = open_store_with_key(key)?;
+    let mut app = tui::App::new(store)?;
+    tui::ui::run_tui(&mut app)?;
     Ok(())
 }
 
