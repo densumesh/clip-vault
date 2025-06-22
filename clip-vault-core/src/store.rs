@@ -25,10 +25,8 @@ impl SqliteVault {
     pub fn open<P: AsRef<std::path::Path>>(path: P, key: &str) -> Result<Self> {
         let conn = Connection::open(path)?;
         conn.pragma_update(None, "key", key)?;
+        conn.pragma_update(None, "journal_mode", "WAL")?;
 
-        // Ensure all required tables and triggers exist upfront. Using execute_batch so
-        // multiple statements can be executed at once (rusqlite::Connection::execute
-        // runs only the first statement it encounters).
         conn.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS items (
@@ -41,8 +39,6 @@ impl SqliteVault {
             );",
         )?;
 
-        // Ensure existing rows are present in the FTS index (no-op if already indexed)
-        let _ = conn.execute("INSERT INTO items_fts(items_fts) VALUES('rebuild');", []);
         Ok(Self { conn })
     }
 }
@@ -60,7 +56,7 @@ impl Vault for SqliteVault {
         let (text, mime) = item.clone().into_parts();
 
         self.conn.execute(
-            "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5);",
+            "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(hash) DO UPDATE SET ts = ?5;",
             params![&hash[..], mime, text, bincode::serialize(item)?, timestamp],
         )?;
 
