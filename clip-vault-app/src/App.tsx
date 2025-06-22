@@ -47,7 +47,7 @@ function App() {
   } = useVault();
 
   // Handle copy with toast notification
-  const handleCopy = async (content: string, contentType?: string) => {
+  const handleCopy = async (content: string, contentType: string) => {
     const success = await copyToClipboard(content, contentType);
     if (success) {
       setCopiedToast(true);

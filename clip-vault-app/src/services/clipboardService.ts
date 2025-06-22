@@ -14,17 +14,12 @@ export class ClipboardService {
     }
   }
 
-  static async copyToClipboard(content: string, contentType?: string): Promise<void> {
+  static async copyToClipboard(content: string, contentType: string): Promise<void> {
     try {
-      if (contentType && contentType.startsWith('image/')) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [contentType]: new Blob([atob(content)], { type: contentType })
-          })
-        ]);
-      } else {
-        await navigator.clipboard.writeText(content);
-      }
+      await invoke("copy_to_clipboard", {
+        content,
+        contentType,
+      });
     } catch (error) {
       console.error("Copy failed:", error);
       throw error;

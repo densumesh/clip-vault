@@ -28,7 +28,7 @@ export const useClipboardSearch = () => {
     }
   }, []);
 
-  const copyToClipboard = useCallback(async (content: string, contentType?: string) => {
+  const copyToClipboard = useCallback(async (content: string, contentType: string) => {
     try {
       await ClipboardService.copyToClipboard(content, contentType);
       return true;

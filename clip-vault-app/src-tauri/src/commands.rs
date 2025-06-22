@@ -1,6 +1,10 @@
+use arboard::ImageData;
+use base64::engine::general_purpose;
+use base64::Engine;
 use clip_vault_core::{ClipboardItem, SqliteVault, Vault};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, State};
 use tracing::info;
@@ -59,10 +63,24 @@ pub async fn search_clipboard(
 }
 
 #[tauri::command]
-pub async fn copy_to_clipboard(content: String, _content_type: String) -> Result<(), String> {
+pub async fn copy_to_clipboard(content: String, content_type: String) -> Result<(), String> {
     use arboard::Clipboard;
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
-    clipboard.set_text(content).map_err(|e| e.to_string())?;
+    if content_type == "text/plain" {
+        clipboard.set_text(content).map_err(|e| e.to_string())?;
+    } else if content_type == "image/png" {
+        let image_data = general_purpose::STANDARD
+            .decode(content)
+            .map_err(|e| e.to_string())?;
+        let image = image::load_from_memory(&image_data).map_err(|e| e.to_string())?;
+
+        let data = ImageData {
+            width: image.width() as usize,
+            height: image.height() as usize,
+            bytes: Cow::from(image.to_rgba8().into_raw()),
+        };
+        clipboard.set_image(data).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

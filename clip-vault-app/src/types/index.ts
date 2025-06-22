@@ -13,7 +13,7 @@ export interface AppSettings {
 
 export interface PreviewPaneProps {
   selectedItem: SearchResult | null;
-  onCopy: (content: string, contentType?: string) => void;
+  onCopy: (content: string, contentType: string) => void;
   onEdit?: () => void;
 }
 
