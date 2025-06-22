@@ -1,5 +1,6 @@
 //! Core data types shared by daemon & CLI.
 
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -7,7 +8,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ClipboardItem {
     Text(String),
-    // Image(Vec<u8>)   // add later
+    Image(Vec<u8>),
 }
 
 impl ClipboardItem {
@@ -17,6 +18,9 @@ impl ClipboardItem {
         let mut hasher = Sha256::new();
         match self {
             ClipboardItem::Text(t) => hasher.update(t.as_bytes()),
+            ClipboardItem::Image(data) => {
+                hasher.update(data);
+            }
         }
         hasher.finalize().into()
     }
@@ -25,6 +29,13 @@ impl ClipboardItem {
     pub fn into_parts(self) -> (String, String) {
         match self {
             ClipboardItem::Text(t) => (t, "text/plain".to_string()),
+            ClipboardItem::Image(data) => {
+                // Convert image data to base64 for transport
+                (
+                    general_purpose::STANDARD.encode(&data),
+                    "image/png".to_string(),
+                )
+            }
         }
     }
 }

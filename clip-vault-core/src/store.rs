@@ -43,6 +43,9 @@ impl SqliteVault {
     }
 }
 
+unsafe impl Send for SqliteVault {}
+unsafe impl Sync for SqliteVault {}
+
 impl Vault for SqliteVault {
     fn insert(&self, hash: [u8; 32], item: &ClipboardItem) -> Result<()> {
         let timestamp = u64::try_from(

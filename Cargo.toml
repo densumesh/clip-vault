@@ -2,7 +2,6 @@
 members = [
     "clip-vault-core",
     "clip-vault-cli",
-    "clip-vault-daemon",
     "clip-vault-tests",
     "clip-vault-app/src-tauri",
 ]

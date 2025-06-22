@@ -99,6 +99,10 @@ impl App {
                             ClipboardItem::Text(text) => text
                                 .to_lowercase()
                                 .contains(&self.search_query.to_lowercase()),
+                            ClipboardItem::Image(_) => {
+                                // For images, search in the query for "image" 
+                                self.search_query.to_lowercase().contains("image")
+                            },
                         })
                         .cloned()
                         .collect();
@@ -370,6 +374,9 @@ impl App {
                         Self::copy_text_to_clipboard(&text.clone())?;
                         self.status_message = "Copied to clipboard!".to_string();
                     }
+                    ClipboardItem::Image(_) => {
+                        self.status_message = "Cannot copy images in CLI mode".to_string();
+                    }
                 }
             }
         }
@@ -391,6 +398,7 @@ impl App {
                 // Extract text without holding the immutable borrow during mutable operations
                 let txt = match &item_with_ts.item {
                     ClipboardItem::Text(t) => Some(t.clone()),
+                    ClipboardItem::Image(_) => Some("[Image content - not displayable in CLI]".to_string()),
                 };
 
                 if let Some(t) = txt {
@@ -423,6 +431,10 @@ impl App {
 
         let original_text = match &item_with_ts.item {
             ClipboardItem::Text(t) => t.clone(),
+            ClipboardItem::Image(_) => {
+                self.status_message = "Cannot edit images in CLI mode".to_string();
+                return Ok(());
+            }
         };
         let original_hash = item_with_ts.item.hash();
 
@@ -681,6 +693,19 @@ impl App {
                             spans.push(Span::raw(preview));
                         }
 
+                        Line::from(spans)
+                    }
+                    ClipboardItem::Image(data) => {
+                        let mut spans = vec![Span::styled(
+                            format!("{:>3}. ", i + 1),
+                            Style::default().fg(Color::DarkGray),
+                        )];
+                        
+                        spans.push(Span::styled(
+                            format!("📷 [Image: {} bytes]", data.len()),
+                            Style::default().fg(Color::Blue),
+                        ));
+                        
                         Line::from(spans)
                     }
                 };
