@@ -190,10 +190,10 @@ mod search_tests {
     #[test]
     fn test_search_empty_vault() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         let results = vault.search("anything", None).unwrap();
         assert!(results.is_empty());
-        
+
         let results = vault.search("anything", Some(5)).unwrap();
         assert!(results.is_empty());
     }
@@ -201,22 +201,22 @@ mod search_tests {
     #[test]
     fn test_search_exact_match() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         let content = "Hello, world!";
         let item = ClipboardItem::Text(content.to_string());
         let hash = hash_content(content);
         vault.insert(hash, &item).unwrap();
-        
+
         // Exact match
         let results = vault.search("Hello, world!", None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].item, item);
-        
+
         // Partial match
         let results = vault.search("Hello", None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].item, item);
-        
+
         // Case insensitive - should match (FTS5 is case insensitive)
         let results = vault.search("hello", None).unwrap();
         assert_eq!(results.len(), 1);
@@ -226,7 +226,7 @@ mod search_tests {
     #[test]
     fn test_search_multiple_matches() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         let items = [
             "Hello world",
             "world peace",
@@ -234,7 +234,7 @@ mod search_tests {
             "Different content",
             "world of programming",
         ];
-        
+
         // Insert items with small delays to ensure ordering
         for content in &items {
             let item = ClipboardItem::Text(content.to_string());
@@ -242,15 +242,27 @@ mod search_tests {
             vault.insert(hash, &item).unwrap();
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        
+
         // Search for "world" - should find 4 matches in reverse chronological order
         let results = vault.search("world", None).unwrap();
         assert_eq!(results.len(), 4);
-        assert_eq!(results[0].item, ClipboardItem::Text("world of programming".to_string())); // Most recent
-        assert_eq!(results[1].item, ClipboardItem::Text("Another world entry".to_string()));
-        assert_eq!(results[2].item, ClipboardItem::Text("world peace".to_string()));
-        assert_eq!(results[3].item, ClipboardItem::Text("Hello world".to_string())); // Oldest
-        
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text("world of programming".to_string())
+        ); // Most recent
+        assert_eq!(
+            results[1].item,
+            ClipboardItem::Text("Another world entry".to_string())
+        );
+        assert_eq!(
+            results[2].item,
+            ClipboardItem::Text("world peace".to_string())
+        );
+        assert_eq!(
+            results[3].item,
+            ClipboardItem::Text("Hello world".to_string())
+        ); // Oldest
+
         // Search for non-existent pattern
         let results = vault.search("nonexistent", None).unwrap();
         assert!(results.is_empty());
@@ -259,7 +271,7 @@ mod search_tests {
     #[test]
     fn test_search_with_limit() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         // Insert 5 items containing "test"
         for i in 1..=5 {
             let content = format!("test item {}", i);
@@ -268,11 +280,11 @@ mod search_tests {
             vault.insert(hash, &item).unwrap();
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        
+
         // Search with limit 0
         let results = vault.search("test", Some(0)).unwrap();
         assert_eq!(results.len(), 0);
-        
+
         // Search with limit 2
         let results = vault.search("test", Some(2)).unwrap();
         assert_eq!(results.len(), 2);
@@ -282,11 +294,11 @@ mod search_tests {
                 assert!(text.contains("test"));
             }
         }
-        
+
         // Search with limit larger than matches
         let results = vault.search("test", Some(10)).unwrap();
         assert_eq!(results.len(), 5); // All matches
-        
+
         // Search without limit
         let results_no_limit = vault.search("test", None).unwrap();
         assert_eq!(results_no_limit.len(), 5);
@@ -301,7 +313,7 @@ mod search_tests {
     #[test]
     fn test_search_special_characters() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         let special_content = [
             "https://example.com/path?query=value&other=123",
             "Email: user@domain.com",
@@ -309,59 +321,74 @@ mod search_tests {
             "SQL: SELECT * FROM table WHERE id = 1;",
             "Math: (a + b) * c = d",
         ];
-        
+
         for content in &special_content {
             let item = ClipboardItem::Text(content.to_string());
             let hash = hash_content(content);
             vault.insert(hash, &item).unwrap();
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        
+
         // Search for URL components
         let results = vault.search("https://", None).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].item, ClipboardItem::Text(special_content[0].to_string()));
-        
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text(special_content[0].to_string())
+        );
+
         // Search for email
         let results = vault.search("@domain.com", None).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].item, ClipboardItem::Text(special_content[1].to_string()));
-        
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text(special_content[1].to_string())
+        );
+
         // Search for code patterns
         let results = vault.search("fn main()", None).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].item, ClipboardItem::Text(special_content[2].to_string()));
-        
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text(special_content[2].to_string())
+        );
+
         // Search for SQL
         let results = vault.search("SELECT", None).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].item, ClipboardItem::Text(special_content[3].to_string()));
-        
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text(special_content[3].to_string())
+        );
+
         // Search for parentheses
         let results = vault.search("(a + b)", None).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].item, ClipboardItem::Text(special_content[4].to_string()));
+        assert_eq!(
+            results[0].item,
+            ClipboardItem::Text(special_content[4].to_string())
+        );
     }
 
     #[test]
     fn test_search_ordering_with_duplicates() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         // Insert items where some have same content but different timestamps
         let content1 = "common search term first";
         let content2 = "different content";
         let content3 = "common search term second";
-        
+
         let item1 = ClipboardItem::Text(content1.to_string());
         let item2 = ClipboardItem::Text(content2.to_string());
         let item3 = ClipboardItem::Text(content3.to_string());
-        
+
         vault.insert(hash_content(content1), &item1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
         vault.insert(hash_content(content2), &item2).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(10));
         vault.insert(hash_content(content3), &item3).unwrap();
-        
+
         // Search should return in reverse chronological order
         let results = vault.search("common search term", None).unwrap();
         assert_eq!(results.len(), 2);
@@ -372,7 +399,7 @@ mod search_tests {
     #[test]
     fn test_search_large_dataset() {
         let (_temp_dir, vault) = create_test_vault();
-        
+
         // Insert 50 items, every 5th contains "special"
         for i in 1..=50 {
             let content = if i % 5 == 0 {
@@ -384,18 +411,18 @@ mod search_tests {
             let hash = hash_content(&content);
             vault.insert(hash, &item).unwrap();
         }
-        
+
         // Search for "special" items
         let results = vault.search("special", None).unwrap();
         assert_eq!(results.len(), 10); // Items 5, 10, 15, ..., 50
-        
+
         // Check that all results contain "special"
         for result in &results {
             if let ClipboardItem::Text(text) = &result.item {
                 assert!(text.contains("special"));
             }
         }
-        
+
         // Search with limit
         let limited_results = vault.search("special", Some(3)).unwrap();
         assert_eq!(limited_results.len(), 3);

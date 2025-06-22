@@ -100,9 +100,9 @@ impl App {
                                 .to_lowercase()
                                 .contains(&self.search_query.to_lowercase()),
                             ClipboardItem::Image(_) => {
-                                // For images, search in the query for "image" 
+                                // For images, search in the query for "image"
                                 self.search_query.to_lowercase().contains("image")
-                            },
+                            }
                         })
                         .cloned()
                         .collect();
@@ -398,7 +398,9 @@ impl App {
                 // Extract text without holding the immutable borrow during mutable operations
                 let txt = match &item_with_ts.item {
                     ClipboardItem::Text(t) => Some(t.clone()),
-                    ClipboardItem::Image(_) => Some("[Image content - not displayable in CLI]".to_string()),
+                    ClipboardItem::Image(_) => {
+                        Some("[Image content - not displayable in CLI]".to_string())
+                    }
                 };
 
                 if let Some(t) = txt {
@@ -700,12 +702,12 @@ impl App {
                             format!("{:>3}. ", i + 1),
                             Style::default().fg(Color::DarkGray),
                         )];
-                        
+
                         spans.push(Span::styled(
                             format!("📷 [Image: {} bytes]", data.len()),
                             Style::default().fg(Color::Blue),
                         ));
-                        
+
                         Line::from(spans)
                     }
                 };

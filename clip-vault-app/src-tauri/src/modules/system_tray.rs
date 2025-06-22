@@ -1,11 +1,11 @@
+use crate::commands::{start_daemon, stop_daemon};
+use crate::modules::window_manager::{show_search_window, show_settings_window};
+use crate::state::AppState;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
-use crate::modules::window_manager::{show_search_window, show_settings_window};
-use crate::commands::{start_daemon, stop_daemon};
-use crate::state::AppState;
 
 pub fn create_system_tray(app: &AppHandle) -> tauri::Result<()> {
     let search_item = MenuItem::with_id(app, "search", "Search Clipboard", true, None::<&str>)?;
