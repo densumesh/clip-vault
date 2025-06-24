@@ -21,7 +21,7 @@ interface RowProps {
   formatTimestamp: (ts: number) => string;
 }
 
-const Row = memo<RowProps & { ref: React.Ref<HTMLDivElement> }>(
+const Row = memo(React.forwardRef<HTMLDivElement, RowProps>(
   ({
     result,
     index,
@@ -31,8 +31,7 @@ const Row = memo<RowProps & { ref: React.Ref<HTMLDivElement> }>(
     getWindowedContent,
     highlightText,
     formatTimestamp,
-    ref,
-  }) => {
+  }, ref) => {
     const processedContent = useMemo(() => {
       if (result.content_type.startsWith("image/")) {
         return {
@@ -89,7 +88,7 @@ const Row = memo<RowProps & { ref: React.Ref<HTMLDivElement> }>(
       </div>
     );
   }
-);
+));
 
 export const ResultsList: React.FC<ResultsListProps> = ({
   results,

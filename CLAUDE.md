@@ -86,3 +86,4 @@ Background service that:
 ## Development Best Practices
 
 - Use yarn always
+- Whenever making a big change always commit and push to ensure that the code is always safe

@@ -120,6 +120,36 @@ export const useClipboardSearch = () => {
     }
   }, []);
 
+  const deleteItem = useCallback(async (content: string) => {
+    try {
+      await ClipboardService.deleteItem(content);
+      
+      // Optimistically update the list - remove the deleted item
+      setResults(prevResults => 
+        prevResults.filter(item => item.content !== content)
+      );
+      
+      // Reset selected index if we deleted the selected item
+      setSelectedIndex(prev => {
+        const deletedIndex = results.findIndex(item => item.content === content);
+        if (deletedIndex === prev) {
+          return Math.max(0, prev - 1);
+        } else if (deletedIndex < prev) {
+          return prev - 1;
+        }
+        return prev;
+      });
+      
+      // Invalidate cache since we've made changes
+      cacheService.invalidateAll();
+      
+      return true;
+    } catch (error) {
+      console.error("Delete failed:", error);
+      return false;
+    }
+  }, [results]);
+
   // Debounced search effect
   useEffect(() => {
     // Cancel previous debounce timer
@@ -162,5 +192,6 @@ export const useClipboardSearch = () => {
     loadMore,
     copyToClipboard,
     updateItem,
+    deleteItem,
   };
 };

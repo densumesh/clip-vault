@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import hljs from 'highlight.js';
+import Editor from 'react-simple-code-editor';
 import type { PreviewPaneProps } from "../types";
 import { getContentStats } from "../utils/textUtils";
 
@@ -181,9 +182,9 @@ const detectLanguage = (content: string): string => {
   return bestMatch.score >= 3 ? bestMatch.lang : 'plaintext';
 };
 
-export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }) => {
+export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy, onDelete }) => {
   const previewRef = useRef<HTMLElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<any>(null);
   const [language, setLanguage] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
@@ -205,6 +206,33 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
         newContent: editedContent,
       });
       setIsEditing(false);
+
+      // Update the selected item content and force re-highlighting
+      if (selectedItem) {
+        selectedItem.content = editedContent;
+        // Trigger re-highlight by updating the preview
+        if (previewRef.current) {
+          const detectedLanguage = detectLanguage(editedContent);
+          let highlightedValue = editedContent;
+
+          setTimeout(() => {
+            if (detectedLanguage !== 'plaintext' && previewRef.current) {
+              try {
+                const highlighted = hljs.highlight(editedContent, { language: detectedLanguage });
+                highlightedValue = highlighted.value;
+                previewRef.current.innerHTML = highlightedValue;
+              } catch (error) {
+                previewRef.current.innerText = editedContent;
+              }
+            } else {
+              if (previewRef.current) {
+                previewRef.current.innerText = editedContent;
+              }
+            }
+          }, 0);
+          setLanguage(detectedLanguage);
+        }
+      }
     } catch (error) {
       console.error("Failed to save item:", error);
       alert("Failed to save changes. Please try again.");
@@ -216,15 +244,58 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
   const handleCancel = () => {
     setIsEditing(false);
     setEditedContent(selectedItem?.content || "");
+    setTimeout(() => {
+      if (previewRef.current && selectedItem) {
+        if (highlightedContent.isHighlighted) {
+          previewRef.current.innerHTML = highlightedContent.content;
+        } else {
+          previewRef.current.innerText = highlightedContent.content;
+        }
+      }
+    }, 0);
   };
 
   const handleEdit = () => {
     setIsEditing(true);
+    // Focus the editor's textarea after it's rendered
     setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
+      // react-simple-code-editor creates a textarea internally
+      const textarea = document.querySelector('.preview-edit-code textarea') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.focus();
+        // Set cursor to end
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       }
-    }, 0);
+    }, 100);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem || isEditing) return;
+
+    const confirmed = confirm(`Are you sure you want to delete this ${selectedItem.content_type.startsWith('image/') ? 'image' : 'item'}?`);
+    if (!confirmed) return;
+
+    try {
+      if (onDelete) {
+        await onDelete(selectedItem.content);
+      }
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+      alert("Failed to delete item. Please try again.");
+    }
+  };
+
+  const highlightCode = (code: string): string => {
+    if (!code || language === 'plaintext' || language === 'image') {
+      return code;
+    }
+
+    try {
+      const highlighted = hljs.highlight(code, { language });
+      return highlighted.value;
+    } catch (error) {
+      return code;
+    }
   };
 
   // Optimized highlighting with caching and size limits
@@ -331,6 +402,9 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
         } else if (e.key === 'e' && !isEditing && selectedItem?.content_type.startsWith('text')) {
           e.preventDefault();
           handleEdit();
+        } else if (e.key === 'x' && !isEditing && selectedItem) {
+          e.preventDefault();
+          handleDelete();
         }
       } else if (e.key === 'Escape' && isEditing) {
         e.preventDefault();
@@ -419,17 +493,35 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
                   Edit
                 </button>
               )}
+              <button
+                className="preview-button delete"
+                onClick={handleDelete}
+                title="Delete item (Ctrl+X)"
+              >
+                Delete
+              </button>
             </>
           )}
         </div>
       </div>
       <div className="preview-content">
         {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            className="preview-edit-textarea"
+          <Editor
+            ref={editorRef}
             value={editedContent}
-            onChange={e => setEditedContent(e.target.value)}
+            onValueChange={setEditedContent}
+            highlight={highlightCode}
+            padding={20}
+            className="preview-edit-code"
+            style={{
+              fontFamily: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+              fontSize: 13,
+              lineHeight: 1.5,
+              background: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              border: 'none',
+              outline: 'none',
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.stopPropagation();
@@ -438,9 +530,10 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
               if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.stopPropagation();
               }
+              if (e.key === 'Enter') {
+                e.stopPropagation();
+              }
             }}
-            placeholder="Edit your content here..."
-            spellCheck={false}
           />
         ) : selectedItem.content_type.startsWith('image/') ? (
           <div className="preview-image-container">

@@ -107,10 +107,28 @@ pub async fn copy_to_clipboard(content: String, content_type: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn delete_item(_: u64, _: State<'_, AppState>) -> Result<(), String> {
-    // Note: This would require adding a delete method to the Vault trait
-    // For now, return an error indicating it's not implemented
-    Err("Delete functionality not yet implemented in vault".to_string())
+pub async fn delete_item(
+    content: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
+    // compute hash of content (text only)
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    let hash = hasher.finalize();
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&hash);
+
+    let vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+    let vault = vault_guard.as_ref().ok_or("Vault not unlocked")?;
+
+    vault.delete(arr).map_err(|e| e.to_string())?;
+
+    // Emit event to refresh search results
+    app.emit("clipboard-updated", ()).ok();
+
+    info!("Item deleted successfully");
+    Ok(())
 }
 
 #[tauri::command]

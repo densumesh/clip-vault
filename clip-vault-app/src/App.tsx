@@ -9,7 +9,6 @@ import {
   ResultsList,
   PreviewPane,
   PasswordPrompt,
-  CopyNotification,
 } from "./components";
 
 // Hooks
@@ -22,7 +21,6 @@ import { useClipboardUpdates } from "./hooks/useClipboardUpdates";
 import { formatTimestamp, getWindowedContent, highlightText } from "./utils/textUtils";
 
 function App() {
-  const [copiedToast, setCopiedToast] = useState(false);
   const [searching, setSearching] = useState(true);
   const [justCopied, setJustCopied] = useState(false);
   // Custom hooks
@@ -38,6 +36,7 @@ function App() {
     searchClipboard,
     loadMore,
     copyToClipboard,
+    deleteItem,
   } = useClipboardSearch();
 
   const {
@@ -53,13 +52,9 @@ function App() {
   // Handle copy with toast notification
   const handleCopy = async (content: string, contentType: string) => {
     setJustCopied(true);
-    const success = await copyToClipboard(content, contentType);
-    if (success) {
-      setCopiedToast(true);
-      // Reset the flag after a short delay to allow for clipboard events
-      setTimeout(() => setJustCopied(false), 1000);
-      setTimeout(() => setCopiedToast(false), 1300);
-    }
+    await copyToClipboard(content, contentType);
+    const window = getCurrentWebviewWindow();
+    window.hide();
   };
 
   // Keyboard navigation
@@ -146,11 +141,14 @@ function App() {
         <PreviewPane
           selectedItem={results[selectedIndex] || null}
           onCopy={handleCopy}
+          onDelete={async (content: string) => {
+            await deleteItem(content);
+          }}
         />
       </div>
 
       <div className="help-text">
-        Use ↑↓ to navigate • Enter to copy • Esc to close
+        Use ↑↓ to navigate • Enter to copy • Ctrl+X to delete • Esc to close
       </div>
 
       <PasswordPrompt
@@ -161,7 +159,6 @@ function App() {
         onCancel={handleCancel}
       />
 
-      <CopyNotification isVisible={copiedToast} />
     </div>
   );
 }

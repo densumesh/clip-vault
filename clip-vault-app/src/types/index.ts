@@ -15,6 +15,7 @@ export interface PreviewPaneProps {
   selectedItem: SearchResult | null;
   onCopy: (content: string, contentType: string) => void;
   onEdit?: () => void;
+  onDelete?: (content: string) => Promise<void>;
 }
 
 export interface SearchInputProps {

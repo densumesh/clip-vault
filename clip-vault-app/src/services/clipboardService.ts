@@ -96,9 +96,9 @@ export class ClipboardService {
     }
   }
 
-  static async deleteItem(timestamp: number): Promise<void> {
+  static async deleteItem(content: string): Promise<void> {
     try {
-      await invoke("delete_item", { timestamp });
+      await invoke("delete_item", { content });
     } catch (error) {
       console.error("Failed to delete item:", error);
       throw error;

@@ -543,6 +543,17 @@ body {
   border: 1px solid var(--border-secondary);
 }
 
+.preview-button.delete {
+  background: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
+}
+
+.preview-button.delete:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
 .preview-content {
   flex: 1;
   overflow: hidden;
@@ -641,6 +652,38 @@ body {
   -ms-user-select: text;
 }
 
+/* Edit mode contentEditable with syntax highlighting */
+.preview-edit-code {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 20px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: auto;
+  border-radius: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+.preview-edit-code:focus {
+  background: var(--bg-primary);
+  border: none;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
 .preview-edit-textarea::placeholder {
   color: var(--text-tertiary);
 }
@@ -672,6 +715,29 @@ body {
 }
 
 .preview-edit-textarea::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+/* Custom scrollbar for contentEditable */
+.preview-edit-code::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-edit-code::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.preview-edit-code::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 4px;
+}
+
+.preview-edit-code::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.preview-edit-code::-webkit-scrollbar-corner {
   background: var(--bg-secondary);
 }
 
