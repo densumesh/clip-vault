@@ -73,12 +73,12 @@ impl Vault for SqliteVault {
         if mime == "image/png" {
             self.conn.execute(
                 "INSERT OR IGNORE INTO items (hash, mime, data, ts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(hash) DO UPDATE SET ts = ?4;",
-                params![&hash[..], mime, bincode::serialize(item)?, timestamp],
+                params![&hash[..], mime, bincode::encode_to_vec(item, bincode::config::standard())?, timestamp],
             )?;
         } else {
             self.conn.execute(
                 "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(hash) DO UPDATE SET ts = ?5;",
-                params![&hash[..], mime, text, bincode::serialize(item)?, timestamp],
+                params![&hash[..], mime, text, bincode::encode_to_vec(item, bincode::config::standard())?, timestamp],
             )?;
         }
 
@@ -92,7 +92,8 @@ impl Vault for SqliteVault {
         let mut rows = stmt.query([])?;
         if let Some(row) = rows.next()? {
             let blob: Vec<u8> = row.get(0)?;
-            let item: ClipboardItem = bincode::deserialize(&blob)?;
+            let (item, _): (ClipboardItem, usize) =
+                bincode::decode_from_slice(&blob, bincode::config::standard())?;
             Ok(Some(item))
         } else {
             Ok(None)
@@ -130,13 +131,14 @@ impl Vault for SqliteVault {
         let rows = stmt.query_map(&param_refs[..], |row| {
             let blob: Vec<u8> = row.get(0)?;
             let timestamp: u64 = row.get(1)?;
-            let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Blob,
-                    Box::new(e),
-                )
-            })?;
+            let (item, _): (ClipboardItem, usize) =
+                bincode::decode_from_slice(&blob, bincode::config::standard()).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Blob,
+                        Box::new(e),
+                    )
+                })?;
             Ok(ClipboardItemWithTimestamp { item, timestamp })
         })?;
 
@@ -196,13 +198,14 @@ impl Vault for SqliteVault {
         let rows = stmt.query_map(&param_refs[..], |row| {
             let blob: Vec<u8> = row.get(0)?;
             let timestamp: u64 = row.get(1)?;
-            let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Blob,
-                    Box::new(e),
-                )
-            })?;
+            let (item, _): (ClipboardItem, usize) =
+                bincode::decode_from_slice(&blob, bincode::config::standard()).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Blob,
+                        Box::new(e),
+                    )
+                })?;
             Ok(ClipboardItemWithTimestamp { item, timestamp })
         })?;
 
@@ -237,7 +240,7 @@ impl Vault for SqliteVault {
                 &new_hash[..],
                 mime,
                 text,
-                bincode::serialize(new_item)?,
+                bincode::encode_to_vec(new_item, bincode::config::standard())?,
                 timestamp,
                 &old_hash[..]
             ],

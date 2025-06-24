@@ -1,11 +1,12 @@
 //! Core data types shared by daemon & CLI.
 
 use base64::{engine::general_purpose, Engine as _};
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode)]
 pub enum ClipboardItem {
     Text(String),
     Image(Vec<u8>),
