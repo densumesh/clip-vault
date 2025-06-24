@@ -3,16 +3,16 @@
 
 use clip_vault_core::default_db_path;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 mod commands;
 mod modules;
 mod state;
 
 use commands::{
-    check_vault_status, copy_to_clipboard, daemon_status, delete_item, get_settings,
-    list_clipboard, open_settings_window, quit_app, save_settings, search_clipboard, start_daemon, stop_daemon,
-    unlock_vault, update_item,
+    check_vault_status, copy_to_clipboard, create_vault, daemon_status, delete_item, get_platform,
+    get_settings, list_clipboard, open_settings_window, quit_app, save_settings, search_clipboard,
+    start_daemon, stop_daemon, unlock_vault, update_item, vault_exists,
 };
 use modules::{system_tray::create_system_tray, window_manager::show_search_window};
 use state::AppState;
@@ -45,12 +45,24 @@ pub fn run() {
 
             // Create system tray
             create_system_tray(app.handle())?;
+            show_search_window(app.handle());
 
-            // Register global shortcut
+            // Register global shortcut from settings
             let app_handle = app.handle().clone();
+            let shortcut = {
+                let app_state = app.state::<AppState>();
+                let settings = app_state
+                    .settings
+                    .lock()
+                    .map_err(|_| "Settings lock poisoned")?;
+                settings.global_shortcut.clone()
+            };
 
             let gs = app.global_shortcut();
-            gs.on_shortcut("Shift+Cmd+C", move |_, _, _| {
+            let parsed_shortcut: Shortcut = shortcut
+                .parse()
+                .map_err(|e| format!("Invalid shortcut: {e}"))?;
+            gs.on_shortcut(parsed_shortcut, move |_, _, _| {
                 show_search_window(&app_handle);
             })?;
 
@@ -74,7 +86,10 @@ pub fn run() {
             start_daemon,
             stop_daemon,
             daemon_status,
-            update_item
+            update_item,
+            vault_exists,
+            create_vault,
+            get_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

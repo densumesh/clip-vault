@@ -9,6 +9,7 @@ import {
   ResultsList,
   PreviewPane,
   PasswordPrompt,
+  OnboardingFlow,
 } from "./components";
 
 // Hooks
@@ -41,11 +42,13 @@ function App() {
   const {
     isUnlocked,
     showPasswordPrompt,
+    showOnboarding,
     password,
     setPassword,
     checkVaultStatus,
     handleUnlock,
     handleCancel,
+    handleOnboardingComplete,
   } = useVault();
 
   // Handle copy with toast notification
@@ -153,6 +156,11 @@ function App() {
         onPasswordChange={setPassword}
         onUnlock={handleUnlock}
         onCancel={handleCancel}
+      />
+
+      <OnboardingFlow
+        isVisible={showOnboarding}
+        onComplete={handleOnboardingComplete}
       />
 
     </div>

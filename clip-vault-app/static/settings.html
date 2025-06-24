@@ -53,7 +53,7 @@
         background: var(--bg-primary);
         color: var(--text-primary);
         padding: 10px;
-        height: 500px;
+        height: 550px;
       }
 
       .settings-container {
@@ -92,6 +92,43 @@
       }
 
       .setting-group input:focus {
+        border-color: var(--accent-primary);
+      }
+
+      .setting-group select {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-secondary);
+        border-radius: 8px;
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px;
+      }
+
+      @media (prefers-color-scheme: light) {
+        .setting-group select {
+          background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23212529' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        }
+      }
+
+      .setting-group select:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+      }
+
+      .setting-group select:hover {
         border-color: var(--accent-primary);
       }
 
@@ -137,29 +174,15 @@
         opacity: 0.9;
       }
 
-      .success-message {
-        margin-top: 8px;
-        margin-bottom: 8px;
-        padding: 12px;
+      .button-primary.saved {
         background: #059669;
         color: white;
-        border-radius: 6px;
-        text-align: center;
-        display: none;
-        transition: display 0.3s;
-      }
-
-      .success-message.show {
-        display: block;
       }
     </style>
   </head>
   <body>
     <div class="settings-container">
       <h1>Clip Vault Settings</h1>
-      <div id="success-message" class="success-message">
-        Settings saved successfully!
-      </div>
       <div class="setting-group">
         <label for="poll-interval">Poll Interval (ms):</label>
         <input
@@ -183,9 +206,19 @@
         <div class="description">Automatically lock vault after inactivity</div>
       </div>
 
+      <div class="setting-group">
+        <label for="global-shortcut">Global Hotkey:</label>
+        <select id="global-shortcut">
+          <!-- Options will be populated by JavaScript based on platform -->
+        </select>
+        <div class="description">
+          Press this key combination to open Clip Vault from anywhere
+        </div>
+      </div>
+
       <div class="button-group">
         <button class="button-secondary" onclick="closeWindow()">Cancel</button>
-        <button class="button-primary" onclick="saveSettings()">Save</button>
+        <button id="save-button" class="button-primary" onclick="saveSettings()">Save</button>
       </div>
     </div>
 
@@ -197,10 +230,63 @@
         poll_interval_ms: 100,
         vault_path: "",
         auto_lock_minutes: 60,
+        global_shortcut: "",
       };
+
+      let platform = "";
+
+      // Generate platform-aware key combo options
+      function getKeyComboOptions() {
+        const isMac = platform === "macos";
+        const cmdKey = isMac ? "⌘" : "Ctrl";
+        const altKey = isMac ? "⌥" : "Alt";
+
+        return [
+          {
+            value: `${isMac ? "Cmd" : "Ctrl"}+Shift+C`,
+            label: `${cmdKey} + Shift + C`,
+          },
+          {
+            value: `${isMac ? "Cmd" : "Ctrl"}+Shift+V`,
+            label: `${cmdKey} + Shift + V`,
+          },
+          {
+            value: `${isMac ? "Cmd" : "Ctrl"}+${isMac ? "Option" : "Alt"}+V`,
+            label: `${cmdKey} + ${altKey} + V`,
+          },
+          {
+            value: `${isMac ? "Cmd" : "Ctrl"}+${isMac ? "Option" : "Alt"}+C`,
+            label: `${cmdKey} + ${altKey} + C`,
+          },
+        ];
+      }
+
+      // Populate the shortcut select options
+      function populateShortcutOptions() {
+        const selectElement = document.getElementById("global-shortcut");
+        const options = getKeyComboOptions();
+
+        selectElement.innerHTML = "";
+        options.forEach((option) => {
+          const optionElement = document.createElement("option");
+          optionElement.value = option.value;
+          optionElement.textContent = option.label;
+          selectElement.appendChild(optionElement);
+        });
+      }
 
       async function loadSettings() {
         try {
+          // Load platform info
+          platform = await invoke("get_platform");
+
+          // Populate shortcut options based on platform
+          populateShortcutOptions();
+
+          console.log("Platform:", platform);
+          console.log("global shortcut:", getKeyComboOptions()[0].value);
+
+          // Load current settings
           currentSettings = await invoke("get_settings");
           document.getElementById("poll-interval").value =
             currentSettings.poll_interval_ms;
@@ -208,6 +294,10 @@
             currentSettings.vault_path;
           document.getElementById("auto-lock").value =
             currentSettings.auto_lock_minutes;
+          document.getElementById("global-shortcut").value =
+            getKeyComboOptions().find(
+              (option) => option.value === currentSettings.global_shortcut,
+            )?.value || getKeyComboOptions()[0].value;
         } catch (error) {
           console.error("Failed to load settings:", error);
         }
@@ -220,19 +310,36 @@
           vault_path: document.getElementById("vault-path").value,
           auto_lock_minutes:
             parseInt(document.getElementById("auto-lock").value) || 60,
+          global_shortcut: document.getElementById("global-shortcut").value,
         };
 
+        const saveButton = document.getElementById("save-button");
+        const originalText = saveButton.textContent;
+        
         try {
+          // Disable button while saving
+          saveButton.disabled = true;
+          saveButton.textContent = "Saving...";
+          
           await invoke("save_settings", { newSettings });
 
-          // Show success message
-          const successMsg = document.getElementById("success-message");
-          successMsg.classList.add("show");
+          // Show success state
+          saveButton.classList.add("saved");
+          saveButton.textContent = "Saved!";
+          
+          // Reset after 2 seconds
           setTimeout(() => {
-            successMsg.classList.remove("show");
-          }, 3000);
+            saveButton.classList.remove("saved");
+            saveButton.textContent = originalText;
+            saveButton.disabled = false;
+          }, 2000);
         } catch (error) {
           console.error("Failed to save settings:", error);
+          
+          // Reset button on error
+          saveButton.textContent = originalText;
+          saveButton.disabled = false;
+          
           alert("Failed to save settings: " + error);
         }
       };

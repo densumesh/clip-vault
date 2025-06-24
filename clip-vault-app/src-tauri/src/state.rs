@@ -9,6 +9,7 @@ pub struct AppSettings {
     pub poll_interval_ms: u64,
     pub vault_path: String,
     pub auto_lock_minutes: u32,
+    pub global_shortcut: String,
 }
 
 impl Default for AppSettings {
@@ -17,6 +18,11 @@ impl Default for AppSettings {
             poll_interval_ms: 100,
             vault_path: default_db_path().to_string_lossy().to_string(),
             auto_lock_minutes: 60, // Default to 1 hour
+            global_shortcut: if cfg!(target_os = "macos") {
+                "Shift+Cmd+C".to_string()
+            } else {
+                "Shift+Ctrl+C".to_string()
+            },
         }
     }
 }

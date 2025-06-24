@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tracing::info;
 
 use crate::modules::clipboard_monitor::{start_clipboard_monitoring, stop_clipboard_monitoring};
@@ -35,7 +36,9 @@ pub async fn list_clipboard(
     // Default limit to 20 if not specified
     let effective_limit = limit.or(Some(20));
 
-    let items = vault.list(effective_limit, after_timestamp).map_err(|e| e.to_string())?;
+    let items = vault
+        .list(effective_limit, after_timestamp)
+        .map_err(|e| e.to_string())?;
 
     let results: Vec<SearchResult> = items
         .into_iter()
@@ -66,7 +69,9 @@ pub async fn search_clipboard(
     // Default limit to 20 if not specified
     let effective_limit = limit.or(Some(20));
 
-    let items = vault.search(&query, effective_limit, after_timestamp).map_err(|e| e.to_string())?;
+    let items = vault
+        .search(&query, effective_limit, after_timestamp)
+        .map_err(|e| e.to_string())?;
 
     let results: Vec<SearchResult> = items
         .into_iter()
@@ -144,14 +149,155 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, Str
 pub async fn save_settings(
     new_settings: AppSettings,
     state: State<'_, AppState>,
+    app: AppHandle,
 ) -> Result<(), String> {
+    // Check if global shortcut changed
+    let old_shortcut = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        settings.global_shortcut.clone()
+    };
+
     let mut settings = state
         .settings
         .lock()
         .map_err(|_| "Settings lock poisoned")?;
+
+    if old_shortcut != new_settings.global_shortcut {
+        // Update the global shortcut
+        let gs = app.global_shortcut();
+
+        // Unregister old shortcut
+        if let Err(e) = gs.unregister(
+            old_shortcut
+                .parse::<Shortcut>()
+                .map_err(|e| format!("Invalid old shortcut: {e}"))?,
+        ) {
+            eprintln!("Failed to unregister old shortcut: {e}");
+        }
+
+        // Register new shortcut
+        let app_handle = app.app_handle().clone();
+        let new_shortcut: Shortcut = new_settings
+            .global_shortcut
+            .parse()
+            .map_err(|e| format!("Invalid shortcut: {e}"))?;
+        gs.on_shortcut(new_shortcut, move |_, _, _| {
+            crate::modules::window_manager::show_search_window(&app_handle);
+        })
+        .map_err(|e| format!("Failed to register new shortcut: {e}"))?;
+    }
+
     *settings = new_settings;
     // TODO: Persist settings to file or config
     Ok(())
+}
+
+#[tauri::command]
+pub async fn vault_exists(state: State<'_, AppState>) -> Result<bool, String> {
+    let vault_path = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        PathBuf::from(&settings.vault_path)
+    };
+
+    Ok(vault_path.exists())
+}
+
+#[tauri::command]
+pub async fn create_vault(
+    password: String,
+    settings: AppSettings,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<bool, String> {
+    // Check if global shortcut changed
+    let old_shortcut = {
+        let app_settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        app_settings.global_shortcut.clone()
+    };
+
+    // Update settings first
+    {
+        let mut app_settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+
+        if old_shortcut != settings.global_shortcut {
+            // Update the global shortcut
+            let gs = app.global_shortcut();
+
+            // Unregister old shortcut
+            if let Err(e) = gs.unregister(
+                old_shortcut
+                    .parse::<Shortcut>()
+                    .map_err(|e| format!("Invalid old shortcut: {e}"))?,
+            ) {
+                eprintln!("Failed to unregister old shortcut: {e}");
+            }
+
+            // Register new shortcut
+            let app_handle = app.app_handle().clone();
+            let new_shortcut: Shortcut = settings
+                .global_shortcut
+                .parse()
+                .map_err(|e| format!("Invalid shortcut: {e}"))?;
+            gs.on_shortcut(new_shortcut, move |_, _, _| {
+                crate::modules::window_manager::show_search_window(&app_handle);
+            })
+            .map_err(|e| format!("Failed to register new shortcut: {e}"))?;
+        }
+
+        *app_settings = settings;
+    }
+
+    // Create the vault by attempting to open it (this creates it if it doesn't exist)
+    let vault_path = {
+        let settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Settings lock poisoned")?;
+        PathBuf::from(&settings.vault_path)
+    };
+
+    match SqliteVault::open(&vault_path, &password) {
+        Ok(new_vault) => {
+            let mut vault = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+            *vault = Some(new_vault);
+
+            // Create new session
+            let now = current_timestamp();
+            let mut session = state.session.lock().map_err(|_| "Session lock poisoned")?;
+            *session = Some(SessionInfo { last_activity: now });
+            drop(session);
+            drop(vault);
+
+            // Start clipboard monitoring
+            let poll_interval = {
+                let settings = state
+                    .settings
+                    .lock()
+                    .map_err(|_| "Settings lock poisoned")?;
+                settings.poll_interval_ms
+            };
+
+            start_clipboard_monitoring(&state.vault, &state.daemon, poll_interval, app)?;
+
+            Ok(true)
+        }
+        Err(e) => {
+            eprintln!("Failed to create vault: {e}");
+            Ok(false)
+        }
+    }
 }
 
 #[tauri::command]
@@ -299,4 +445,9 @@ pub async fn update_item(
 
     info!("Item updated successfully");
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_platform() -> Result<String, String> {
+    Ok(std::env::consts::OS.to_string())
 }

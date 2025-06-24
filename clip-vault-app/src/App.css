@@ -195,20 +195,20 @@ body {
   transition: filter 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 
-.results-container::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 8px;
 }
 
-.results-container::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.results-container::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background: rgba(120, 120, 120, 0.4);
   border-radius: 4px;
 }
 
-.results-container:hover::-webkit-scrollbar-thumb {
+*:hover::-webkit-scrollbar-thumb {
   background: rgba(120, 120, 120, 0.6);
 }
 
@@ -960,4 +960,314 @@ body {
   border-radius: 3px;
   font-size: 0.8em;
   font-weight: 500;
+}
+
+/* Onboarding Styles */
+.onboarding-overlay {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.onboarding-modal {
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.onboarding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.onboarding-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.step-indicator {
+  display: flex;
+  gap: 8px;
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-secondary);
+  transition: background 0.2s;
+}
+
+.step-dot.active {
+  background: var(--accent-primary);
+}
+
+.onboarding-content {
+  padding: 24px;
+  min-height: 300px;
+}
+
+.onboarding-footer {
+  display: flex;
+  gap: 12px;
+  padding: 15px 24px;
+  border-top: 1px solid var(--border-primary);
+  justify-content: flex-end;
+}
+
+/* Welcome Step */
+.onboarding-welcome {
+  text-align: center;
+}
+
+.welcome-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.onboarding-welcome h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+/* Feature Carousel */
+.feature-carousel {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.feature-cards-container {
+  overflow: hidden;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.feature-cards {
+  display: flex;
+  transition: transform 0.5s ease-in-out;
+  width: 400%; /* 4 cards * 100% */
+}
+
+.feature-card {
+  flex: 0 0 25%; /* Each card takes 25% of the total container (400% / 4 = 25% each) */
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.feature-card-icon {
+  font-size: 32px;
+  margin-bottom: 14px;
+}
+
+.feature-card h4 {
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.feature-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.carousel-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.carousel-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border-secondary);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.carousel-dot.active {
+  background: var(--accent-primary);
+}
+
+.carousel-dot:hover {
+  background: var(--accent-primary);
+  opacity: 0.7;
+}
+
+/* Password Step */
+.onboarding-password {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.password-info {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.password-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.onboarding-password .setting-group {
+  margin-bottom: 20px;
+}
+
+.onboarding-password .setting-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.onboarding-password input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.onboarding-password input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.onboarding-password input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.input-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.success-message {
+  color: #059669;
+  font-size: 13px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* Settings Step */
+.onboarding-settings {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.onboarding-settings .setting-group {
+  margin-bottom: 24px;
+}
+
+.onboarding-settings .setting-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.onboarding-settings select {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+@media (prefers-color-scheme: light) {
+  .onboarding-settings select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23212529' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  }
+}
+
+.onboarding-settings select:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.onboarding-settings select:hover {
+  border-color: var(--accent-primary);
+}
+
+.onboarding-settings small {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
 }

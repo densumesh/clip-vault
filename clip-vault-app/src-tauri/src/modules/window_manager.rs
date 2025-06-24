@@ -32,7 +32,7 @@ pub fn show_settings_window(app: &AppHandle) {
             WebviewUrl::App("static/settings.html".into()),
         )
         .title("Clip Vault Settings")
-        .inner_size(500.0, 550.0)
+        .inner_size(500.0, 600.0)
         .center()
         .resizable(false)
         .decorations(true)

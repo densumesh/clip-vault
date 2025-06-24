@@ -104,4 +104,31 @@ export class ClipboardService {
       throw error;
     }
   }
+
+  static async vaultExists(): Promise<boolean> {
+    try {
+      return await invoke<boolean>("vault_exists");
+    } catch (error) {
+      console.error("Failed to check vault existence:", error);
+      return false;
+    }
+  }
+
+  static async createVault(password: string, settings: any): Promise<boolean> {
+    try {
+      return await invoke<boolean>("create_vault", { password, settings });
+    } catch (error) {
+      console.error("Failed to create vault:", error);
+      throw error;
+    }
+  }
+
+  static async getPlatform(): Promise<string> {
+    try {
+      return await invoke<string>("get_platform");
+    } catch (error) {
+      console.error("Failed to get platform:", error);
+      return "unknown";
+    }
+  }
 }
