@@ -33,7 +33,10 @@ function App() {
     selectedIndex,
     setSelectedIndex,
     loading,
+    loadingMore,
+    hasMore,
     searchClipboard,
+    loadMore,
     copyToClipboard,
   } = useClipboardSearch();
 
@@ -131,6 +134,9 @@ function App() {
             query={query}
             onSelect={setSelectedIndex}
             loading={loading}
+            loadingMore={loadingMore}
+            hasMore={hasMore}
+            onLoadMore={loadMore}
             formatTimestamp={formatTimestamp}
             getWindowedContent={getWindowedContent}
             highlightText={highlightText}

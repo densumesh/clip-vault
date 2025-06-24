@@ -11,7 +11,7 @@ mod state;
 
 use commands::{
     check_vault_status, copy_to_clipboard, daemon_status, delete_item, get_settings,
-    open_settings_window, quit_app, save_settings, search_clipboard, start_daemon, stop_daemon,
+    list_clipboard, open_settings_window, quit_app, save_settings, search_clipboard, start_daemon, stop_daemon,
     unlock_vault, update_item,
 };
 use modules::{system_tray::create_system_tray, window_manager::show_search_window};
@@ -61,6 +61,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            list_clipboard,
             search_clipboard,
             copy_to_clipboard,
             delete_item,

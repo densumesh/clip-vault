@@ -29,8 +29,8 @@ mod vault_tests {
         assert_eq!(vault.len().unwrap(), 0);
         assert!(vault.is_empty().unwrap());
         assert!(vault.latest().unwrap().is_none());
-        assert!(vault.list(None).unwrap().is_empty());
-        assert!(vault.list(Some(5)).unwrap().is_empty());
+        assert!(vault.list(None, None).unwrap().is_empty());
+        assert!(vault.list(Some(5), None).unwrap().is_empty());
     }
 
     #[test]
@@ -48,7 +48,7 @@ mod vault_tests {
         let latest = vault.latest().unwrap().unwrap();
         assert_eq!(latest, item);
 
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 1);
         assert_eq!(all_items[0].item, item);
     }
@@ -66,7 +66,7 @@ mod vault_tests {
 
         // Should still only have one item due to PRIMARY KEY constraint
         assert_eq!(vault.len().unwrap(), 1);
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 1);
         assert_eq!(all_items[0].item, item);
     }
@@ -99,7 +99,7 @@ mod vault_tests {
         assert_eq!(latest, items[2].1);
 
         // List all should return in reverse chronological order (newest first)
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 3);
         assert_eq!(all_items[0].item, items[2].1); // Third (newest)
         assert_eq!(all_items[1].item, items[1].1); // Second
@@ -122,18 +122,18 @@ mod vault_tests {
         assert_eq!(vault.len().unwrap(), 5);
 
         // Test various limits
-        let limit_0 = vault.list(Some(0)).unwrap();
+        let limit_0 = vault.list(Some(0), None).unwrap();
         assert_eq!(limit_0.len(), 0);
 
-        let limit_2 = vault.list(Some(2)).unwrap();
+        let limit_2 = vault.list(Some(2), None).unwrap();
         assert_eq!(limit_2.len(), 2);
         assert_eq!(limit_2[0].item, ClipboardItem::Text("Item 5".to_string())); // Most recent
         assert_eq!(limit_2[1].item, ClipboardItem::Text("Item 4".to_string()));
 
-        let limit_10 = vault.list(Some(10)).unwrap(); // More than available
+        let limit_10 = vault.list(Some(10), None).unwrap(); // More than available
         assert_eq!(limit_10.len(), 5); // Should return all 5
 
-        let no_limit = vault.list(None).unwrap();
+        let no_limit = vault.list(None, None).unwrap();
         assert_eq!(no_limit.len(), 5);
         // Compare the items, not the full structs with timestamps
         for (i, item) in limit_10.iter().enumerate() {
@@ -191,10 +191,10 @@ mod search_tests {
     fn test_search_empty_vault() {
         let (_temp_dir, vault) = create_test_vault();
 
-        let results = vault.search("anything", None).unwrap();
+        let results = vault.search("anything", None, None).unwrap();
         assert!(results.is_empty());
 
-        let results = vault.search("anything", Some(5)).unwrap();
+        let results = vault.search("anything", Some(5), None).unwrap();
         assert!(results.is_empty());
     }
 
@@ -208,17 +208,17 @@ mod search_tests {
         vault.insert(hash, &item).unwrap();
 
         // Exact match
-        let results = vault.search("Hello, world!", None).unwrap();
+        let results = vault.search("Hello, world!", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].item, item);
 
         // Partial match
-        let results = vault.search("Hello", None).unwrap();
+        let results = vault.search("Hello", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].item, item);
 
         // Case insensitive - should match (FTS5 is case insensitive)
-        let results = vault.search("hello", None).unwrap();
+        let results = vault.search("hello", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].item, item);
     }
@@ -244,7 +244,7 @@ mod search_tests {
         }
 
         // Search for "world" - should find 4 matches in reverse chronological order
-        let results = vault.search("world", None).unwrap();
+        let results = vault.search("world", None, None).unwrap();
         assert_eq!(results.len(), 4);
         assert_eq!(
             results[0].item,
@@ -264,7 +264,7 @@ mod search_tests {
         ); // Oldest
 
         // Search for non-existent pattern
-        let results = vault.search("nonexistent", None).unwrap();
+        let results = vault.search("nonexistent", None, None).unwrap();
         assert!(results.is_empty());
     }
 
@@ -282,11 +282,11 @@ mod search_tests {
         }
 
         // Search with limit 0
-        let results = vault.search("test", Some(0)).unwrap();
+        let results = vault.search("test", Some(0), None).unwrap();
         assert_eq!(results.len(), 0);
 
         // Search with limit 2
-        let results = vault.search("test", Some(2)).unwrap();
+        let results = vault.search("test", Some(2), None).unwrap();
         assert_eq!(results.len(), 2);
         // Results are in relevance order, just check we got the right count
         for result in &results {
@@ -296,11 +296,11 @@ mod search_tests {
         }
 
         // Search with limit larger than matches
-        let results = vault.search("test", Some(10)).unwrap();
+        let results = vault.search("test", Some(10), None).unwrap();
         assert_eq!(results.len(), 5); // All matches
 
         // Search without limit
-        let results_no_limit = vault.search("test", None).unwrap();
+        let results_no_limit = vault.search("test", None, None).unwrap();
         assert_eq!(results_no_limit.len(), 5);
         // All results should contain "test"
         for result in &results_no_limit {
@@ -330,7 +330,7 @@ mod search_tests {
         }
 
         // Search for URL components
-        let results = vault.search("https://", None).unwrap();
+        let results = vault.search("https://", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].item,
@@ -338,7 +338,7 @@ mod search_tests {
         );
 
         // Search for email
-        let results = vault.search("@domain.com", None).unwrap();
+        let results = vault.search("@domain.com", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].item,
@@ -346,7 +346,7 @@ mod search_tests {
         );
 
         // Search for code patterns
-        let results = vault.search("fn main()", None).unwrap();
+        let results = vault.search("fn main()", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].item,
@@ -354,7 +354,7 @@ mod search_tests {
         );
 
         // Search for SQL
-        let results = vault.search("SELECT", None).unwrap();
+        let results = vault.search("SELECT", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].item,
@@ -362,7 +362,7 @@ mod search_tests {
         );
 
         // Search for parentheses
-        let results = vault.search("(a + b)", None).unwrap();
+        let results = vault.search("(a + b)", None, None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(
             results[0].item,
@@ -390,7 +390,7 @@ mod search_tests {
         vault.insert(hash_content(content3), &item3).unwrap();
 
         // Search should return in reverse chronological order
-        let results = vault.search("common search term", None).unwrap();
+        let results = vault.search("common search term", None, None).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].item, item3); // Most recent
         assert_eq!(results[1].item, item1); // Oldest matching
@@ -413,7 +413,7 @@ mod search_tests {
         }
 
         // Search for "special" items
-        let results = vault.search("special", None).unwrap();
+        let results = vault.search("special", None, None).unwrap();
         assert_eq!(results.len(), 10); // Items 5, 10, 15, ..., 50
 
         // Check that all results contain "special"
@@ -424,7 +424,7 @@ mod search_tests {
         }
 
         // Search with limit
-        let limited_results = vault.search("special", Some(3)).unwrap();
+        let limited_results = vault.search("special", Some(3), None).unwrap();
         assert_eq!(limited_results.len(), 3);
         // Check that all limited results contain "special"
         for result in &limited_results {
@@ -477,7 +477,7 @@ mod integration_tests {
         );
 
         // Test list all (should be in reverse order)
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 5);
         assert_eq!(
             all_items[0].item,
@@ -489,7 +489,7 @@ mod integration_tests {
         );
 
         // Test list with limits
-        let last_3 = vault.list(Some(3)).unwrap();
+        let last_3 = vault.list(Some(3), None).unwrap();
         assert_eq!(last_3.len(), 3);
         assert_eq!(
             last_3[0].item,
@@ -521,7 +521,7 @@ mod integration_tests {
 
         // Should only have one entry due to duplicate detection
         assert_eq!(vault.len().unwrap(), 1);
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 1);
         assert_eq!(all_items[0].item, item);
     }
@@ -547,7 +547,7 @@ mod integration_tests {
             ClipboardItem::Text("Clipboard item number 100".to_string())
         );
 
-        let last_10 = vault.list(Some(10)).unwrap();
+        let last_10 = vault.list(Some(10), None).unwrap();
         assert_eq!(last_10.len(), 10);
         assert_eq!(
             last_10[0].item,
@@ -558,7 +558,7 @@ mod integration_tests {
             ClipboardItem::Text("Clipboard item number 91".to_string())
         );
 
-        let all_items = vault.list(None).unwrap();
+        let all_items = vault.list(None, None).unwrap();
         assert_eq!(all_items.len(), 100);
         assert_eq!(
             all_items[0].item,

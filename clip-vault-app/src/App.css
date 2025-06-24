@@ -45,6 +45,10 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 body {
@@ -79,7 +83,6 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
-  user-select: none;
 }
 
 .results-panel {
@@ -88,7 +91,6 @@ body {
   border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
-  user-select: none;
 }
 
 .search-container {
@@ -99,12 +101,10 @@ body {
   border-bottom: 1px solid var(--border-primary);
   -webkit-app-region: drag;
   cursor: grab;
-  user-select: none;
 }
 
 .search-container:active {
   cursor: grabbing;
-  user-select: none;
 }
 
 .drag-handle {
@@ -112,7 +112,6 @@ body {
   justify-content: center;
   margin-bottom: 8px;
   -webkit-app-region: drag;
-  user-select: none;
 }
 
 .drag-dots {
@@ -145,6 +144,10 @@ body {
   transition: border-color 0.2s;
   -webkit-app-region: no-drag;
   cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .search-input:focus {
@@ -170,7 +173,8 @@ body {
   border-radius: 2px;
   font-weight: 600;
   display: inline;
-  white-space: normal;
+  /* Inherit parent's nowrap so text never wraps when highlighted */
+  white-space: inherit;
 }
 
 .result-item.selected .highlight {
@@ -179,11 +183,33 @@ body {
 }
 
 .results-container {
-  flex: 1;
-  overflow: hidden;
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0; /* ensures it can shrink inside flex column */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   contain: layout style paint;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(120, 120, 120, 0.4) transparent;
+  transition: filter 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.results-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.results-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.results-container::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.4);
+  border-radius: 4px;
+}
+
+.results-container:hover::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.6);
 }
 
 .loading,
@@ -241,11 +267,50 @@ body {
   }
 }
 
+/* Smooth scrolling inside results list */
+.results-list {
+  position: relative; /* so the highlight bar is positioned correctly */
+  scroll-behavior: smooth;
+}
+
+/* Animated highlight bar that slides between rows */
+.result-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--accent, #3d7eff);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Put row content above the highlight */
+.result-item {
+  position: relative;
+  z-index: 10;
+  transition: color 120ms;
+}
+
+/* When selected we just change the text colour – the background is the moving bar */
+.result-item.selected {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results-list {
+    scroll-behavior: auto;
+  }
+  .result-highlight {
+    transition: none;
+  }
+}
+
 .result-item {
   padding: 12px 16px;
   cursor: pointer;
+  height: 65px;
   border-bottom: 1px solid var(--border-primary);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: background-color, transform;
   transform: translateZ(0);
   scroll-snap-align: start;
@@ -264,6 +329,7 @@ body {
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
   border-left: 3px solid var(--accent-primary);
   margin-left: -3px;
+  font-size: inherit;
 }
 
 .result-item.selected .result-meta {
@@ -277,7 +343,8 @@ body {
   margin-bottom: 4px;
   word-break: break-word;
   overflow: hidden;
-  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-meta {
@@ -481,6 +548,10 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .preview-code {
@@ -494,6 +565,10 @@ body {
   font-size: 13px;
   line-height: 1.5;
   border: none;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .preview-code code {
@@ -506,6 +581,10 @@ body {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 /* Syntax highlighting overrides for dark/light theme */
@@ -556,6 +635,10 @@ body {
   line-height: 1.5;
   overflow: auto;
   border-radius: 0;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .preview-edit-textarea::placeholder {
@@ -600,8 +683,8 @@ body {
 }
 
 .result-image-thumbnail {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   object-fit: cover;
   border-radius: 4px;
   border: 1px solid var(--border-primary);
@@ -732,6 +815,10 @@ body {
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .modal-content input:focus {

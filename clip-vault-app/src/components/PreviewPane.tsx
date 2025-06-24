@@ -129,54 +129,54 @@ const PLAIN_TEXT_INDICATORS = [
 
 const detectLanguage = (content: string): string => {
   const trimmed = content.trim();
-  
+
   // Skip detection for very short content
   if (trimmed.length < 10) {
     return 'plaintext';
   }
-  
+
   // Check if it looks like plain text first
-  const isPlainText = PLAIN_TEXT_INDICATORS.some(pattern => 
+  const isPlainText = PLAIN_TEXT_INDICATORS.some(pattern =>
     pattern.test(trimmed.slice(0, 200)) // Check first 200 chars
   );
-  
+
   if (isPlainText) {
     return 'plaintext';
   }
-  
+
   // Score each language
   const scores: Record<string, number> = {};
-  
+
   for (const [lang, detector] of Object.entries(LANGUAGE_DETECTORS)) {
     let score = 0;
-    
+
     // Pattern matching
-    const patternMatches = detector.patterns.filter(pattern => 
+    const patternMatches = detector.patterns.filter(pattern =>
       pattern.test(content)
     ).length;
-    
+
     if (patternMatches >= detector.minMatches) {
       score += patternMatches * 2;
     }
-    
+
     // Keyword matching
-    const keywordMatches = detector.keywords.filter(keyword => 
+    const keywordMatches = detector.keywords.filter(keyword =>
       new RegExp(`\\b${keyword}\\b`, 'i').test(content)
     ).length;
-    
+
     score += keywordMatches;
-    
+
     if (score > 0) {
       scores[lang] = score;
     }
   }
-  
+
   // Find the highest scoring language
   const bestMatch = Object.entries(scores).reduce(
     (best, [lang, score]) => score > best.score ? { lang, score } : best,
     { lang: 'plaintext', score: 0 }
   );
-  
+
   // Only use language detection if we have a confident match
   return bestMatch.score >= 3 ? bestMatch.lang : 'plaintext';
 };
@@ -255,9 +255,9 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
     // Smart language detection
     const detectedLanguage = detectLanguage(content);
     const shouldHighlight = detectedLanguage !== 'plaintext';
-    
+
     let highlightedValue = content;
-    
+
     // Only perform syntax highlighting if we detected a specific language
     if (shouldHighlight) {
       try {
@@ -325,7 +325,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 's' && isEditing) {
+        if ((e.key === 's' || e.key === 'Enter') && isEditing) {
           e.preventDefault();
           handleSave();
         } else if (e.key === 'e' && !isEditing && selectedItem?.content_type.startsWith('text')) {
@@ -369,7 +369,6 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
               <span className="stat-item">{stats.words} words</span>
               {language && <span className="stat-item language-tag">{language}</span>}
               {isHighlighting && <span className="stat-item">Analyzing...</span>}
-              {stats.chars > MAX_HIGHLIGHT_SIZE && <span className="stat-item warning">Large file - highlighting disabled</span>}
             </div>
           ) : (
             <div className="preview-stats">
@@ -391,7 +390,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
                 disabled={isSaving || editedContent === selectedItem.content}
                 title="Save changes (Ctrl+S)"
               >
-                {isSaving ? "⏳ Saving..." : "💾 Save"}
+                {isSaving ? "Saving..." : "Save"}
               </button>
               <button
                 className="preview-button cancel"
@@ -399,7 +398,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
                 disabled={isSaving}
                 title="Cancel editing (Esc)"
               >
-                ✖ Cancel
+                Cancel
               </button>
             </>
           ) : (
@@ -409,7 +408,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
                 onClick={() => onCopy(selectedItem.content, selectedItem.content_type)}
                 title="Copy to clipboard"
               >
-                📋 Copy
+                Copy
               </button>
               {selectedItem.content_type.startsWith('text') && (
                 <button
@@ -417,7 +416,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
                   onClick={handleEdit}
                   title="Edit content (Ctrl+E)"
                 >
-                  ✏️ Edit
+                  Edit
                 </button>
               )}
             </>
@@ -431,6 +430,15 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }
             className="preview-edit-textarea"
             value={editedContent}
             onChange={e => setEditedContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                handleCancel();
+              }
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.stopPropagation();
+              }
+            }}
             placeholder="Edit your content here..."
             spellCheck={false}
           />

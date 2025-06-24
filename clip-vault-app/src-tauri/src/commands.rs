@@ -24,32 +24,52 @@ pub struct SearchResult {
 }
 
 #[tauri::command]
-pub async fn search_clipboard(
-    query: String,
+pub async fn list_clipboard(
+    limit: Option<usize>,
+    after_timestamp: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<Vec<SearchResult>, String> {
     let vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
     let vault = vault_guard.as_ref().ok_or("Vault not unlocked")?;
 
-    let items = vault.list(None).map_err(|e| e.to_string())?;
+    // Default limit to 20 if not specified
+    let effective_limit = limit.or(Some(20));
+
+    let items = vault.list(effective_limit, after_timestamp).map_err(|e| e.to_string())?;
 
     let results: Vec<SearchResult> = items
         .into_iter()
-        .filter(|item| {
-            if query.is_empty() {
-                true
-            } else {
-                match &item.item {
-                    clip_vault_core::ClipboardItem::Text(text) => {
-                        text.to_lowercase().contains(&query.to_lowercase())
-                    }
-                    clip_vault_core::ClipboardItem::Image(_) => {
-                        query.to_lowercase().contains("image")
-                            || query.to_lowercase().contains("png")
-                    }
-                }
+        .map(|item| {
+            let (content, content_type) = item.item.clone().into_parts();
+            SearchResult {
+                id: format!("{}", item.timestamp),
+                content,
+                timestamp: item.timestamp,
+                content_type,
             }
         })
+        .collect();
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn search_clipboard(
+    query: String,
+    limit: Option<usize>,
+    after_timestamp: Option<u64>,
+    state: State<'_, AppState>,
+) -> Result<Vec<SearchResult>, String> {
+    let vault_guard = state.vault.lock().map_err(|_| "Vault lock poisoned")?;
+    let vault = vault_guard.as_ref().ok_or("Vault not unlocked")?;
+
+    // Default limit to 20 if not specified
+    let effective_limit = limit.or(Some(20));
+
+    let items = vault.search(&query, effective_limit, after_timestamp).map_err(|e| e.to_string())?;
+
+    let results: Vec<SearchResult> = items
+        .into_iter()
         .map(|item| {
             let (content, content_type) = item.item.clone().into_parts();
             SearchResult {

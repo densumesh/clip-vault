@@ -142,7 +142,7 @@ fn cmd_latest(key: &str) -> Result<()> {
 
 fn cmd_list(key: &str, count: Option<usize>) -> Result<()> {
     let store = open_store_with_key(key)?;
-    let items = store.list(count)?;
+    let items = store.list(count, None)?;
 
     if items.is_empty() {
         println!("No clipboard entries found.");
@@ -163,7 +163,7 @@ fn cmd_list(key: &str, count: Option<usize>) -> Result<()> {
 
 fn cmd_search(key: &str, query: &str, count: Option<usize>) -> Result<()> {
     let store = open_store_with_key(key)?;
-    let items = store.search(query, count)?;
+    let items = store.search(query, count, None)?;
 
     if items.is_empty() {
         println!("No clipboard entries found matching '{query}'.");

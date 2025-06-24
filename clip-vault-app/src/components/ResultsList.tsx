@@ -1,90 +1,80 @@
-import React, { useRef, useEffect, memo, useMemo } from "react";
+import React, {
+  useRef,
+  useMemo,
+  useLayoutEffect,
+  useEffect,
+  memo,
+} from "react";
 import type { ResultsListProps } from "../types";
 
-// Text processing cache for performance
 const TEXT_PROCESSING_CACHE = new Map<string, any>();
 const CACHE_SIZE_LIMIT = 200;
 
-export const ResultsList: React.FC<ResultsListProps> = ({
-  results,
-  selectedIndex,
-  query,
-  onSelect,
-  loading,
-  formatTimestamp,
-  getWindowedContent,
-  highlightText,
-}) => {
-  const resultRefs = useRef<(HTMLDivElement | null)[]>([]);
+interface RowProps {
+  result: any;
+  index: number;
+  isSelected: boolean;
+  query: string;
+  onSelect: (idx: number) => void;
+  getWindowedContent: (content: string, q: string) => string;
+  highlightText: (content: string, q: string) => React.ReactNode;
+  formatTimestamp: (ts: number) => string;
+}
 
-  useEffect(() => {
-    const activeEl = resultRefs.current[selectedIndex];
-    if (activeEl) {
-      // Use a slight delay to ensure smooth scrolling feels natural
-      requestAnimationFrame(() => {
-        activeEl.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-          inline: "nearest"
-        });
-      });
-    }
-  }, [selectedIndex]);
-
-  const Row = memo(({ result, index, isSelected }: { result: any, index: number, isSelected: boolean }) => {
+const Row = memo<RowProps & { ref: React.Ref<HTMLDivElement> }>(
+  ({
+    result,
+    index,
+    isSelected,
+    query,
+    onSelect,
+    getWindowedContent,
+    highlightText,
+    formatTimestamp,
+    ref,
+  }) => {
     const processedContent = useMemo(() => {
-      if (result.content_type.startsWith('image/')) {
+      if (result.content_type.startsWith("image/")) {
         return {
-          type: 'image',
+          type: "image",
           content: result.content,
           contentType: result.content_type,
-          size: Math.round(result.content.length * 0.75 / 1024)
-        };
+          size: Math.round((result.content.length * 0.75) / 1024),
+        } as const;
       }
 
       const cacheKey = `${result.id}-${query}`;
       const cached = TEXT_PROCESSING_CACHE.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
+      if (cached) return cached;
 
       const windowedContent = getWindowedContent(result.content, query);
       const highlighted = highlightText(windowedContent, query);
-      
-      const processed = {
-        type: 'text',
-        content: highlighted
-      };
 
-      // Cache management
+      const processed = { type: "text", content: highlighted } as const;
+
       if (TEXT_PROCESSING_CACHE.size >= CACHE_SIZE_LIMIT) {
         const firstKey = TEXT_PROCESSING_CACHE.keys().next().value;
-        if (firstKey) {
-          TEXT_PROCESSING_CACHE.delete(firstKey);
-        }
+        if (firstKey) TEXT_PROCESSING_CACHE.delete(firstKey);
       }
       TEXT_PROCESSING_CACHE.set(cacheKey, processed);
-      
       return processed;
-    }, [result.content, result.content_type, result.id, query]);
+    }, [result, query, getWindowedContent, highlightText]);
 
     return (
       <div
-        ref={el => {
-          if (el) resultRefs.current[index] = el;
-        }}
         className={`result-item ${isSelected ? "selected" : ""}`}
         onClick={() => onSelect(index)}
+        ref={ref}
       >
         <div className="result-content">
-          {processedContent.type === 'image' ? (
+          {processedContent.type === "image" ? (
             <div className="image-result">
               <img
                 src={`data:${processedContent.contentType};base64,${processedContent.content}`}
-                alt="Clipboard image"
+                alt="Clipboard preview"
                 className="result-image-thumbnail"
                 loading="lazy"
-                style={{ imageRendering: 'auto' }}
+                draggable={false}
               />
               <div className="image-info">Image ({processedContent.size} KB)</div>
             </div>
@@ -98,10 +88,82 @@ export const ResultsList: React.FC<ResultsListProps> = ({
         </div>
       </div>
     );
-  });
+  }
+);
+
+export const ResultsList: React.FC<ResultsListProps> = ({
+  results,
+  selectedIndex,
+  query,
+  onSelect,
+  loading,
+  loadingMore,
+  hasMore,
+  onLoadMore,
+  formatTimestamp,
+  getWindowedContent,
+  highlightText,
+}) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const resultRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Clean up refs when results change to prevent stale references
+  useEffect(() => {
+    resultRefs.current = resultRefs.current.slice(0, results.length);
+  }, [results.length]);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || results.length < 5) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          onLoadMore();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '100px', // Start loading when element is 100px from viewport
+      }
+    );
+
+    // Find the 5th element from the end
+    const triggerIndex = Math.max(0, results.length - 5);
+    const triggerElement = resultRefs.current[triggerIndex];
+
+    if (triggerElement) {
+      observer.observe(triggerElement);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadingMore, onLoadMore, results.length]);
+
+  useEffect(() => {
+    if (results.length > 0 && selectedIndex === 0) {
+      const el = resultRefs.current[0];
+      if (el) {
+        el.scrollIntoView({ behavior: "instant", block: "nearest" });
+      }
+    }
+  }, [results, selectedIndex]);
+
+  useLayoutEffect(() => {
+    const el = resultRefs.current[selectedIndex];
+    const container = containerRef.current;
+    if (el && container) {
+
+      // trigger smooth centering
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: "instant", block: "nearest" });
+      });
+    }
+  }, [selectedIndex]);
 
   return (
-    <div className="results-container">
+    <div className={`results-container`} ref={containerRef}>
       {results.length === 0 ? (
         <div className="empty-state">
           {query ? "No matches found" : "No clipboard history yet"}
@@ -110,16 +172,43 @@ export const ResultsList: React.FC<ResultsListProps> = ({
         <div className="results-list">
           {results.map((result, idx) => (
             <Row
+              ref={(el) => {
+                if (el) resultRefs.current[idx] = el;
+              }}
               key={result.id}
               result={result}
               index={idx}
               isSelected={idx === selectedIndex}
+              query={query}
+              onSelect={onSelect}
+              getWindowedContent={getWindowedContent}
+              highlightText={highlightText}
+              formatTimestamp={formatTimestamp}
             />
           ))}
+
+          {/* Loading indicator at the bottom */}
+          {loadingMore && (
+            <div
+              className="loading-indicator"
+              style={{
+                height: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <span>Loading more...</span>
+            </div>
+          )}
         </div>
       )}
 
-      {loading && <div className="loading-overlay"><span>Searching...</span></div>}
+      {loading && query.length > 0 && (
+        <div className="loading-overlay">
+          <span>Searching...</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,6 +32,9 @@ export interface ResultsListProps {
   query: string;
   onSelect: (index: number) => void;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
   formatTimestamp: (timestamp: number) => string;
   getWindowedContent: (content: string, query: string, maxLength?: number) => string;
   highlightText: (text: string, query: string) => React.ReactNode;

@@ -4,7 +4,6 @@ import type { SearchInputProps } from "../types";
 export const SearchInput: React.FC<SearchInputProps> = ({
   query,
   onQueryChange,
-  loading,
   resultsCount,
   searching,
   setSearching,
@@ -46,7 +45,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         placeholder="Search your clipboard history..."
         className="search-input"
       />
-      {!loading && query !== "" && (
+      {query !== "" && (
         <div className="results-count">
           {resultsCount === 0
             ? (query ? "No matches" : "No items")

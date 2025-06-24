@@ -82,3 +82,7 @@ Background service that:
 - Session cache: `{cache_dir}/clip-vault/session.json`
 - macOS LaunchAgent: `~/Library/LaunchAgents/com.clip-vault.daemon.plist`
 - Daemon logs: `/tmp/clip-vault.out`, `/tmp/clip-vault.err`
+
+## Development Best Practices
+
+- Use yarn always

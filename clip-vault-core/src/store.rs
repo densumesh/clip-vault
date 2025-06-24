@@ -3,8 +3,17 @@ use crate::{ClipboardItem, ClipboardItemWithTimestamp, Result};
 pub trait Vault {
     fn insert(&self, hash: [u8; 32], item: &ClipboardItem) -> Result<()>;
     fn latest(&self) -> Result<Option<ClipboardItem>>;
-    fn list(&self, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
-    fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>>;
+    fn list(
+        &self,
+        limit: Option<usize>,
+        after_timestamp: Option<u64>,
+    ) -> Result<Vec<ClipboardItemWithTimestamp>>;
+    fn search(
+        &self,
+        query: &str,
+        limit: Option<usize>,
+        after_timestamp: Option<u64>,
+    ) -> Result<Vec<ClipboardItemWithTimestamp>>;
     fn update(&self, old_hash: [u8; 32], new_item: &ClipboardItem) -> Result<()>;
     fn delete(&self, hash: [u8; 32]) -> Result<()>;
 
@@ -36,7 +45,11 @@ impl SqliteVault {
                 text    TEXT,
                 data    BLOB    NOT NULL,
                 ts      INTEGER NOT NULL
-            );",
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_mime_text ON items (mime, text);
+            CREATE INDEX IF NOT EXISTS idx_ts ON items (ts);
+            ",
         )?;
 
         Ok(Self { conn })
@@ -57,11 +70,17 @@ impl Vault for SqliteVault {
         .unwrap();
 
         let (text, mime) = item.clone().into_parts();
-
-        self.conn.execute(
-            "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(hash) DO UPDATE SET ts = ?5;",
-            params![&hash[..], mime, text, bincode::serialize(item)?, timestamp],
-        )?;
+        if mime == "image/png" {
+            self.conn.execute(
+                "INSERT OR IGNORE INTO items (hash, mime, data, ts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(hash) DO UPDATE SET ts = ?4;",
+                params![&hash[..], mime, bincode::serialize(item)?, timestamp],
+            )?;
+        } else {
+            self.conn.execute(
+                "INSERT OR IGNORE INTO items (hash, mime, text, data, ts) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(hash) DO UPDATE SET ts = ?5;",
+                params![&hash[..], mime, text, bincode::serialize(item)?, timestamp],
+            )?;
+        }
 
         Ok(())
     }
@@ -80,14 +99,35 @@ impl Vault for SqliteVault {
         }
     }
 
-    fn list(&self, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>> {
-        let query = match limit {
-            Some(n) => format!("SELECT data, ts FROM items ORDER BY ts DESC LIMIT {n}"),
-            None => "SELECT data, ts FROM items ORDER BY ts DESC".to_string(),
-        };
+    fn list(
+        &self,
+        limit: Option<usize>,
+        after_timestamp: Option<u64>,
+    ) -> Result<Vec<ClipboardItemWithTimestamp>> {
+        let (query, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
+            match (limit, after_timestamp) {
+                (Some(n), Some(ts)) => (
+                    format!("SELECT data, ts FROM items WHERE ts < ? ORDER BY ts DESC LIMIT {n}"),
+                    vec![Box::new(ts)],
+                ),
+                (Some(n), None) => (
+                    format!("SELECT data, ts FROM items ORDER BY ts DESC LIMIT {n}"),
+                    vec![],
+                ),
+                (None, Some(ts)) => (
+                    "SELECT data, ts FROM items WHERE ts < ? ORDER BY ts DESC".to_string(),
+                    vec![Box::new(ts)],
+                ),
+                (None, None) => (
+                    "SELECT data, ts FROM items ORDER BY ts DESC".to_string(),
+                    vec![],
+                ),
+            };
 
         let mut stmt = self.conn.prepare(&query)?;
-        let rows = stmt.query_map([], |row| {
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(std::convert::AsRef::as_ref).collect();
+        let rows = stmt.query_map(&param_refs[..], |row| {
             let blob: Vec<u8> = row.get(0)?;
             let timestamp: u64 = row.get(1)?;
             let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {
@@ -107,24 +147,53 @@ impl Vault for SqliteVault {
         Ok(items)
     }
 
-    fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<ClipboardItemWithTimestamp>> {
+    fn search(
+        &self,
+        query: &str,
+        limit: Option<usize>,
+        after_timestamp: Option<u64>,
+    ) -> Result<Vec<ClipboardItemWithTimestamp>> {
         // Add wildcards for LIKE pattern matching
         let like_pattern = format!("%{query}%");
 
-        let sql = match limit {
-            Some(n) => format!(
-                "SELECT data, ts FROM items 
-                WHERE text LIKE ? 
-                ORDER BY ts DESC LIMIT {n}"
+        let (sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) = match (limit, after_timestamp)
+        {
+            (Some(n), Some(ts)) => (
+                format!(
+                    "SELECT data, ts FROM items 
+                    WHERE text LIKE ? AND ts < ? AND mime != 'image/png'
+                    ORDER BY ts DESC LIMIT {n}"
+                ),
+                vec![Box::new(like_pattern), Box::new(ts)],
             ),
-            None => "SELECT data, ts FROM items 
-                WHERE text LIKE ? 
+            (Some(n), None) => (
+                format!(
+                    "SELECT data, ts FROM items 
+                    WHERE text LIKE ? AND mime != 'image/png'
+                    ORDER BY ts DESC LIMIT {n}"
+                ),
+                vec![Box::new(like_pattern)],
+            ),
+            (None, Some(ts)) => (
+                "SELECT data, ts FROM items 
+                WHERE text LIKE ? AND ts < ? AND mime != 'image/png'
                 ORDER BY ts DESC"
-                .into(),
+                    .to_string(),
+                vec![Box::new(like_pattern), Box::new(ts)],
+            ),
+            (None, None) => (
+                "SELECT data, ts FROM items 
+                WHERE text LIKE ? AND mime != 'image/png'
+                ORDER BY ts DESC"
+                    .to_string(),
+                vec![Box::new(like_pattern)],
+            ),
         };
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map([like_pattern], |row| {
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(std::convert::AsRef::as_ref).collect();
+        let rows = stmt.query_map(&param_refs[..], |row| {
             let blob: Vec<u8> = row.get(0)?;
             let timestamp: u64 = row.get(1)?;
             let item: ClipboardItem = bincode::deserialize(&blob).map_err(|e| {

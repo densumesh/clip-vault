@@ -78,7 +78,7 @@ impl App {
     }
 
     pub fn load_items(&mut self) -> Result<()> {
-        self.items = self.vault.list(None)?;
+        self.items = self.vault.list(None, None)?;
         self.apply_filter();
         Ok(())
     }
@@ -88,7 +88,7 @@ impl App {
             self.filtered_items = self.items.clone();
         } else {
             // Use the vault's search functionality for consistency
-            match self.vault.search(&self.search_query, None) {
+            match self.vault.search(&self.search_query, None, None) {
                 Ok(results) => self.filtered_items = results,
                 Err(_) => {
                     // Fallback to simple text matching if search fails
