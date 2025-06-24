@@ -10,6 +10,7 @@ import {
   PreviewPane,
   PasswordPrompt,
   OnboardingFlow,
+  UpdateNotification,
 } from "./components";
 
 // Hooks
@@ -17,6 +18,7 @@ import { useClipboardSearch } from "./hooks/useClipboardSearch";
 import { useVault } from "./hooks/useVault";
 import { useKeyboardNavigation } from "./hooks/useKeyboardNavigation";
 import { useClipboardUpdates } from "./hooks/useClipboardUpdates";
+import { UpdateService } from "./services/updateService";
 
 // Utils
 import { formatTimestamp, getWindowedContent, highlightText } from "./utils/textUtils";
@@ -79,6 +81,31 @@ function App() {
     },
     showPasswordPrompt,
   });
+
+  // Update notification state
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+
+  useEffect(() => {
+    // Check for updates once on app load
+    const checkUpdates = async () => {
+      try {
+        const version = await UpdateService.checkForUpdates();
+        if (version) {
+          setUpdateVersion(version);
+          setShowUpdateNotification(true);
+        }
+      } catch (e) {
+        console.error("Failed to check for updates", e);
+      }
+    };
+
+    checkUpdates();
+  }, []);
+
+  const handleCloseUpdateNotification = () => {
+    setShowUpdateNotification(false);
+  };
 
   // Window management
   useEffect(() => {
@@ -162,6 +189,10 @@ function App() {
         isVisible={showOnboarding}
         onComplete={handleOnboardingComplete}
       />
+
+      {showUpdateNotification && updateVersion && (
+        <UpdateNotification version={updateVersion} onClose={handleCloseUpdateNotification} />
+      )}
 
     </div>
   );

@@ -1271,3 +1271,103 @@ body {
   font-size: 12px;
   line-height: 1.4;
 }
+
+/* ===================== */
+/*  Update Notification  */
+/* ===================== */
+
+.update-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 6px 20px var(--shadow-primary);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.update-notification .update-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.update-notification .update-icon {
+  font-size: 24px;
+}
+
+.update-notification .update-text h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.update-notification .update-text p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.update-notification .progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.update-notification .progress-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  width: 0;
+  transition: width 0.2s ease;
+}
+
+.update-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.update-button {
+  padding: 6px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.update-button.primary {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.update-button.primary:hover {
+  background: rgba(14, 165, 233, 0.85);
+}
+
+.update-button.secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.update-button.secondary:hover {
+  background: var(--border-secondary);
+}
+
+/* Error variant */
+.update-notification.error {
+  border-color: var(--warning-bg);
+}
+
+.update-notification.error .update-icon {
+  color: var(--warning-bg);
+}

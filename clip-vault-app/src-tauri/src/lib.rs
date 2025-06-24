@@ -10,9 +10,10 @@ mod modules;
 mod state;
 
 use commands::{
-    check_vault_status, copy_to_clipboard, create_vault, daemon_status, delete_item, get_platform,
-    get_settings, list_clipboard, open_settings_window, quit_app, save_settings, search_clipboard,
-    start_daemon, stop_daemon, unlock_vault, update_item, vault_exists,
+    check_for_updates, check_vault_status, copy_to_clipboard, create_vault, daemon_status,
+    delete_item, get_platform, get_settings, install_update, list_clipboard, open_settings_window,
+    quit_app, save_settings, search_clipboard, start_daemon, stop_daemon, unlock_vault,
+    update_item, vault_exists,
 };
 use modules::{system_tray::create_system_tray, window_manager::show_search_window};
 use state::AppState;
@@ -36,6 +37,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(app_state)
         .setup(|app| {
             // Hide the main window immediately
@@ -90,6 +92,8 @@ pub fn run() {
             vault_exists,
             create_vault,
             get_platform,
+            check_for_updates,
+            install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

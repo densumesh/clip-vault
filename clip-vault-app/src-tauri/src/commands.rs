@@ -451,3 +451,70 @@ pub async fn update_item(
 pub async fn get_platform() -> Result<String, String> {
     Ok(std::env::consts::OS.to_string())
 }
+
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    match app.updater() {
+        Ok(updater) => match updater.check().await {
+            Ok(Some(update)) => {
+                info!("Update available: {}", update.version);
+                Ok(Some(update.version.to_string()))
+            }
+            Ok(None) => {
+                info!("No updates available");
+                Ok(None)
+            }
+            Err(e) => {
+                eprintln!("Failed to check for updates: {e}");
+                Err(format!("Failed to check for updates: {e}"))
+            }
+        },
+        Err(e) => Err(format!("Failed to get updater: {e}")),
+    }
+}
+
+#[tauri::command]
+#[allow(clippy::cast_precision_loss)]
+pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    match app.updater() {
+        Ok(updater) => {
+            match updater.check().await {
+                Ok(Some(update)) => {
+                    info!("Installing update: {}", update.version);
+
+                    let mut downloaded = 0;
+
+                    // Download and install with progress
+                    update
+                        .download_and_install(
+                            |chunk_length, content_length| {
+                                downloaded += chunk_length;
+                                if let Some(total) = content_length {
+                                    let progress = (downloaded as f64 / total as f64) * 100.0;
+                                    info!("Download progress: {:.1}%", progress);
+
+                                    // Emit progress event
+                                    let _ = app.emit("update-progress", progress);
+                                }
+                            },
+                            || {
+                                info!("Update download completed, restarting application...");
+                                let _ = app.emit("update-installed", ());
+                            },
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to install update: {e}"))?;
+
+                    Ok(())
+                }
+                Ok(None) => Err("No updates available".to_string()),
+                Err(e) => Err(format!("Failed to check for updates: {e}")),
+            }
+        }
+        Err(e) => Err(format!("Failed to get updater: {e}")),
+    }
+}
