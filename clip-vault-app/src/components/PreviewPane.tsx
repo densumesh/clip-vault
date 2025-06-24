@@ -182,7 +182,7 @@ const detectLanguage = (content: string): string => {
   return bestMatch.score >= 3 ? bestMatch.lang : 'plaintext';
 };
 
-export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy, onDelete }) => {
+export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy }) => {
   const previewRef = useRef<HTMLElement>(null);
   const editorRef = useRef<any>(null);
   const [language, setLanguage] = useState<string>("");
@@ -269,21 +269,6 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy, 
     }, 100);
   };
 
-  const handleDelete = async () => {
-    if (!selectedItem || isEditing) return;
-
-    const confirmed = confirm(`Are you sure you want to delete this ${selectedItem.content_type.startsWith('image/') ? 'image' : 'item'}?`);
-    if (!confirmed) return;
-
-    try {
-      if (onDelete) {
-        await onDelete(selectedItem.content);
-      }
-    } catch (error) {
-      console.error("Failed to delete item:", error);
-      alert("Failed to delete item. Please try again.");
-    }
-  };
 
   const highlightCode = (code: string): string => {
     if (!code || language === 'plaintext' || language === 'image') {
@@ -402,9 +387,6 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy, 
         } else if (e.key === 'e' && !isEditing && selectedItem?.content_type.startsWith('text')) {
           e.preventDefault();
           handleEdit();
-        } else if (e.key === 'x' && !isEditing && selectedItem) {
-          e.preventDefault();
-          handleDelete();
         }
       } else if (e.key === 'Escape' && isEditing) {
         e.preventDefault();
@@ -493,13 +475,6 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ selectedItem, onCopy, 
                   Edit
                 </button>
               )}
-              <button
-                className="preview-button delete"
-                onClick={handleDelete}
-                title="Delete item (Ctrl+X)"
-              >
-                Delete
-              </button>
             </>
           )}
         </div>

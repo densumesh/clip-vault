@@ -36,7 +36,6 @@ function App() {
     searchClipboard,
     loadMore,
     copyToClipboard,
-    deleteItem,
   } = useClipboardSearch();
 
   const {
@@ -141,14 +140,11 @@ function App() {
         <PreviewPane
           selectedItem={results[selectedIndex] || null}
           onCopy={handleCopy}
-          onDelete={async (content: string) => {
-            await deleteItem(content);
-          }}
         />
       </div>
 
       <div className="help-text">
-        Use ↑↓ to navigate • Enter to copy • Ctrl+X to delete • Esc to close
+        Use ↑↓ to navigate • Enter to copy • Esc to close
       </div>
 
       <PasswordPrompt

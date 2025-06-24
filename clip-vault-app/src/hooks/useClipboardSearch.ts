@@ -69,40 +69,40 @@ export const useClipboardSearch = () => {
   const copyToClipboard = useCallback(async (content: string, contentType: string) => {
     try {
       await ClipboardService.copyToClipboard(content, contentType);
-      
+
       // Only do optimistic update if we're viewing the main list (not searching)
       if (query.trim() === "") {
         // Optimistically update the list - find the copied item and move it to the top
         setResults(prevResults => {
-          const copiedItemIndex = prevResults.findIndex(item => 
+          const copiedItemIndex = prevResults.findIndex(item =>
             item.content === content && item.content_type === contentType
           );
-          
+
           if (copiedItemIndex > 0) {
             // Create new array with the copied item moved to the front
             const newResults = [...prevResults];
             const [copiedItem] = newResults.splice(copiedItemIndex, 1);
-            
+
             // Update timestamp to current time for realistic ordering
             const updatedItem = {
               ...copiedItem,
               timestamp: Date.now() * 1000000 // Convert to nanoseconds like backend
             };
-            
+
             return [updatedItem, ...newResults];
           }
-          
+
           return prevResults;
         });
-        
+
         // Reset selected index to 0 since the copied item is now at the top
         setSelectedIndex(0);
       }
-      
+
       // Invalidate cache since we've made an optimistic update
       // The real clipboard-updated event will refresh with accurate data
       cacheService.invalidateAll();
-      
+
       return true;
     } catch (error) {
       console.error("Copy failed:", error);
@@ -119,36 +119,6 @@ export const useClipboardSearch = () => {
       return false;
     }
   }, []);
-
-  const deleteItem = useCallback(async (content: string) => {
-    try {
-      await ClipboardService.deleteItem(content);
-      
-      // Optimistically update the list - remove the deleted item
-      setResults(prevResults => 
-        prevResults.filter(item => item.content !== content)
-      );
-      
-      // Reset selected index if we deleted the selected item
-      setSelectedIndex(prev => {
-        const deletedIndex = results.findIndex(item => item.content === content);
-        if (deletedIndex === prev) {
-          return Math.max(0, prev - 1);
-        } else if (deletedIndex < prev) {
-          return prev - 1;
-        }
-        return prev;
-      });
-      
-      // Invalidate cache since we've made changes
-      cacheService.invalidateAll();
-      
-      return true;
-    } catch (error) {
-      console.error("Delete failed:", error);
-      return false;
-    }
-  }, [results]);
 
   // Debounced search effect
   useEffect(() => {
@@ -192,6 +162,5 @@ export const useClipboardSearch = () => {
     loadMore,
     copyToClipboard,
     updateItem,
-    deleteItem,
   };
 };
