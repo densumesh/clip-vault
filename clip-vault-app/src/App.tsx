@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import 'highlight.js/styles/github-dark.css';
+import "highlight.js/styles/github-dark.css";
 import "./App.css";
 
 // Components
@@ -21,7 +21,11 @@ import { useClipboardUpdates } from "./hooks/useClipboardUpdates";
 import { UpdateService } from "./services/updateService";
 
 // Utils
-import { formatTimestamp, getWindowedContent, highlightText } from "./utils/textUtils";
+import {
+  formatTimestamp,
+  getWindowedContent,
+  highlightText,
+} from "./utils/textUtils";
 
 function App() {
   const [searching, setSearching] = useState(true);
@@ -119,12 +123,12 @@ function App() {
       await checkVaultStatus();
     };
 
-    window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
 
     return () => {
-      window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
     };
   }, [checkVaultStatus]);
 
@@ -191,9 +195,11 @@ function App() {
       />
 
       {showUpdateNotification && updateVersion && (
-        <UpdateNotification version={updateVersion} onClose={handleCloseUpdateNotification} />
+        <UpdateNotification
+          version={updateVersion}
+          onClose={handleCloseUpdateNotification}
+        />
       )}
-
     </div>
   );
 }

@@ -75,7 +75,6 @@ body {
   backdrop-filter: blur(20px);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 25px 50px var(--shadow-primary);
   border: 1px solid var(--border-light);
 }
 

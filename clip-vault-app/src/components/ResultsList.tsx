@@ -21,74 +21,83 @@ interface RowProps {
   formatTimestamp: (ts: number) => string;
 }
 
-const Row = memo(React.forwardRef<HTMLDivElement, RowProps>(
-  ({
-    result,
-    index,
-    isSelected,
-    query,
-    onSelect,
-    getWindowedContent,
-    highlightText,
-    formatTimestamp,
-  }, ref) => {
-    const processedContent = useMemo(() => {
-      if (result.content_type.startsWith("image/")) {
-        return {
-          type: "image",
-          content: result.content,
-          contentType: result.content_type,
-          size: Math.round((result.content.length * 0.75) / 1024),
-        } as const;
-      }
+const Row = memo(
+  React.forwardRef<HTMLDivElement, RowProps>(
+    (
+      {
+        result,
+        index,
+        isSelected,
+        query,
+        onSelect,
+        getWindowedContent,
+        highlightText,
+        formatTimestamp,
+      },
+      ref
+    ) => {
+      const processedContent = useMemo(() => {
+        if (result.content_type.startsWith("image/")) {
+          return {
+            type: "image",
+            content: result.content,
+            contentType: result.content_type,
+            size: Math.round((result.content.length * 0.75) / 1024),
+          } as const;
+        }
 
-      const cacheKey = `${result.id}-${query}`;
-      const cached = TEXT_PROCESSING_CACHE.get(cacheKey);
-      if (cached) return cached;
+        const cacheKey = `${result.id}-${query}`;
+        const cached = TEXT_PROCESSING_CACHE.get(cacheKey);
+        if (cached) return cached;
 
-      const windowedContent = getWindowedContent(result.content, query);
-      const highlighted = highlightText(windowedContent, query);
+        const windowedContent = getWindowedContent(result.content, query);
+        const highlighted = highlightText(windowedContent, query);
 
-      const processed = { type: "text", content: highlighted } as const;
+        const processed = { type: "text", content: highlighted } as const;
 
-      if (TEXT_PROCESSING_CACHE.size >= CACHE_SIZE_LIMIT) {
-        const firstKey = TEXT_PROCESSING_CACHE.keys().next().value;
-        if (firstKey) TEXT_PROCESSING_CACHE.delete(firstKey);
-      }
-      TEXT_PROCESSING_CACHE.set(cacheKey, processed);
-      return processed;
-    }, [result, query, getWindowedContent, highlightText]);
+        if (TEXT_PROCESSING_CACHE.size >= CACHE_SIZE_LIMIT) {
+          const firstKey = TEXT_PROCESSING_CACHE.keys().next().value;
+          if (firstKey) TEXT_PROCESSING_CACHE.delete(firstKey);
+        }
+        TEXT_PROCESSING_CACHE.set(cacheKey, processed);
+        return processed;
+      }, [result, query, getWindowedContent, highlightText]);
 
-    return (
-      <div
-        className={`result-item ${isSelected ? "selected" : ""}`}
-        onClick={() => onSelect(index)}
-        ref={ref}
-      >
-        <div className="result-content">
-          {processedContent.type === "image" ? (
-            <div className="image-result">
-              <img
-                src={`data:${processedContent.contentType};base64,${processedContent.content}`}
-                alt="Clipboard preview"
-                className="result-image-thumbnail"
-                loading="lazy"
-                draggable={false}
-              />
-              <div className="image-info">Image ({processedContent.size} KB)</div>
-            </div>
-          ) : (
-            processedContent.content
-          )}
+      return (
+        <div
+          className={`result-item ${isSelected ? "selected" : ""}`}
+          onClick={() => onSelect(index)}
+          ref={ref}
+        >
+          <div className="result-content">
+            {processedContent.type === "image" ? (
+              <div className="image-result">
+                <img
+                  src={`data:${processedContent.contentType};base64,${processedContent.content}`}
+                  alt="Clipboard preview"
+                  className="result-image-thumbnail"
+                  loading="lazy"
+                  draggable={false}
+                />
+                <div className="image-info">
+                  Image ({processedContent.size} KB)
+                </div>
+              </div>
+            ) : (
+              processedContent.content
+            )}
+          </div>
+          <div className="result-meta">
+            <span className="result-time">
+              {formatTimestamp(result.timestamp)}
+            </span>
+            <span className="result-type">{result.content_type}</span>
+          </div>
         </div>
-        <div className="result-meta">
-          <span className="result-time">{formatTimestamp(result.timestamp)}</span>
-          <span className="result-type">{result.content_type}</span>
-        </div>
-      </div>
-    );
-  }
-));
+      );
+    }
+  )
+);
 
 export const ResultsList: React.FC<ResultsListProps> = ({
   results,
@@ -123,7 +132,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
       },
       {
         threshold: 0.1,
-        rootMargin: '100px', // Start loading when element is 100px from viewport
+        rootMargin: "100px", // Start loading when element is 100px from viewport
       }
     );
 
@@ -141,6 +150,8 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   }, [hasMore, loadingMore, onLoadMore, results.length]);
 
   useEffect(() => {
+    console.log("results", results);
+
     if (results.length > 0 && selectedIndex === 0) {
       const el = resultRefs.current[0];
       if (el) {
@@ -153,7 +164,6 @@ export const ResultsList: React.FC<ResultsListProps> = ({
     const el = resultRefs.current[selectedIndex];
     const container = containerRef.current;
     if (el && container) {
-
       // trigger smooth centering
       requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: "instant", block: "nearest" });
@@ -191,10 +201,10 @@ export const ResultsList: React.FC<ResultsListProps> = ({
             <div
               className="loading-indicator"
               style={{
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               <span>Loading more...</span>
