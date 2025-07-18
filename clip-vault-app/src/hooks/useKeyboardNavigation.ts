@@ -9,6 +9,7 @@ interface UseKeyboardNavigationProps {
   onCopy: (content: string, contentType: string) => void;
   showPasswordPrompt: boolean;
   setSearching: (searching: boolean) => void;
+  setQuery: (query: string) => void;
 }
 
 export const useKeyboardNavigation = ({
@@ -18,12 +19,15 @@ export const useKeyboardNavigation = ({
   onCopy,
   showPasswordPrompt,
   setSearching,
+  setQuery,
 }: UseKeyboardNavigationProps) => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't handle shortcuts if modals are open
     if (showPasswordPrompt) return;
 
     if (e.key === "Escape") {
+      // Clear search query when closing
+      setQuery("");
       const window = getCurrentWebviewWindow();
       window.hide();
     } else if (e.key === "ArrowDown") {
@@ -41,7 +45,7 @@ export const useKeyboardNavigation = ({
       e.preventDefault();
       setSearching(true);
     }
-  }, [results, selectedIndex, setSelectedIndex, onCopy, showPasswordPrompt]);
+  }, [results, selectedIndex, setSelectedIndex, onCopy, showPasswordPrompt, setQuery]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);

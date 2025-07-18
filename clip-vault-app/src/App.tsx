@@ -72,6 +72,7 @@ function App() {
     onCopy: handleCopy,
     showPasswordPrompt,
     setSearching,
+    setQuery,
   });
 
   // Clipboard updates
@@ -113,12 +114,15 @@ function App() {
   // Window management
   useEffect(() => {
     const handleWindowBlur = () => {
+      // Clear search query when window closes
+      setQuery("");
       const window = getCurrentWebviewWindow();
       window.hide();
     };
 
     const handleWindowFocus = async () => {
-      // Check vault status when window gains focus
+      // Clear search query and check vault status when window gains focus
+      setQuery("");
       await checkVaultStatus();
     };
 
@@ -129,7 +133,7 @@ function App() {
       window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("focus", handleWindowFocus);
     };
-  }, [checkVaultStatus]);
+  }, [checkVaultStatus, setQuery]);
 
   // Initialize app
   useEffect(() => {
