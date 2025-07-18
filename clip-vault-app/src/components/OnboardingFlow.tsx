@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClipboardService } from '../services/clipboardService';
 
 interface OnboardingFlowProps {
@@ -18,33 +18,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isVisible, onCom
   const [confirmPassword, setConfirmPassword] = useState('');
   const [keyCombo, setKeyCombo] = useState('');
   const [sessionTime, setSessionTime] = useState(15);
-  const [currentFeature, setCurrentFeature] = useState(0);
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [platform, setPlatform] = useState<string>('');
-  const autoAdvanceTimerRef = useRef<number | null>(null);
 
-  const features = [
-    {
-      icon: '🔒',
-      title: 'Encrypted Storage',
-      description: 'Your clipboard history is encrypted with SQLCipher for maximum security'
-    },
-    {
-      icon: '🔍',
-      title: 'Powerful Search',
-      description: 'Instantly find any copied text with fuzzy search and filtering'
-    },
-    {
-      icon: '✏️',
-      title: 'Edit & Organize',
-      description: 'Edit clipboard items with syntax highlighting and smart formatting'
-    },
-    {
-      icon: '⚡',
-      title: 'Quick Access',
-      description: 'Global hotkey for instant clipboard access from anywhere'
-    }
-  ];
 
   // Platform detection and default shortcut setup
   useEffect(() => {
@@ -67,47 +42,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isVisible, onCom
     }
   }, [isVisible, keyCombo]);
 
-  // Auto-advance feature cards
-  useEffect(() => {
-    if (step === 0 && isVisible && !isUserInteracting) {
-      autoAdvanceTimerRef.current = setInterval(() => {
-        setCurrentFeature(prev => (prev + 1) % features.length);
-      }, 3000);
-
-      return () => {
-        if (autoAdvanceTimerRef.current) {
-          clearInterval(autoAdvanceTimerRef.current);
-          autoAdvanceTimerRef.current = null;
-        }
-      };
-    }
-  }, [step, isVisible, isUserInteracting, features.length]);
-
-  // Reset user interaction after delay
-  useEffect(() => {
-    if (isUserInteracting) {
-      const resetTimer = setTimeout(() => {
-        setIsUserInteracting(false);
-      }, 2000); // Resume auto-advance after 2 seconds
-
-      return () => clearTimeout(resetTimer);
-    }
-  }, [isUserInteracting]);
-
-  const nextFeature = () => {
-    setIsUserInteracting(true);
-    setCurrentFeature(prev => (prev + 1) % features.length);
-  };
-
-  const prevFeature = () => {
-    setIsUserInteracting(true);
-    setCurrentFeature(prev => (prev - 1 + features.length) % features.length);
-  };
-
-  const goToFeature = (index: number) => {
-    setIsUserInteracting(true);
-    setCurrentFeature(index);
-  };
 
   // Generate platform-aware key combo options
   const getKeyComboOptions = () => {
@@ -125,51 +59,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isVisible, onCom
 
   const steps = [
     // Welcome step
-    {
-      title: 'Welcome to Clip Vault',
-      content: (
-        <div className="onboarding-welcome">
-          <div className="welcome-icon">🔐</div>
-          <h3>Secure Clipboard Manager</h3>
-
-          <div className="feature-carousel">
-            <div className="feature-cards-container">
-              <div
-                className="feature-cards"
-                style={{ transform: `translateX(-${currentFeature * 25}%)` }}
-              >
-                {features.map((feature, index) => (
-                  <div key={index} className="feature-card">
-                    <div className="feature-card-icon">{feature.icon}</div>
-                    <h4>{feature.title}</h4>
-                    <p>{feature.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="carousel-controls">
-              <button className="carousel-btn prev" onClick={prevFeature}>
-                ‹
-              </button>
-              <div className="carousel-dots">
-                {features.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`carousel-dot ${index === currentFeature ? 'active' : ''}`}
-                    onClick={() => goToFeature(index)}
-                  />
-                ))}
-              </div>
-              <button className="carousel-btn next" onClick={nextFeature}>
-                ›
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    // Password setup
     {
       title: 'Create Your Master Password',
       content: (

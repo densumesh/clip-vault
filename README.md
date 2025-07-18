@@ -1,6 +1,6 @@
 # Clip Vault
 
-A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault automatically captures and encrypts your clipboard history, making it searchable and accessible across all your devices.
+A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault automatically captures and encrypts your clipboard history, making it searchable and accessible with a beautiful modern interface.
 
 ![image.png](images/main-image.png)
 
@@ -13,13 +13,16 @@ A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault
 - 🔄 **Background monitoring** - Automatically captures clipboard changes
 - 📱 **Portable** - Single executable with no external dependencies
 - 🚀 **Lightweight** - Minimal system resource usage
+- 🎯 **Toast notifications** - Visual feedback when copying items
+- 🚀 **Onboarding flow** - Guided setup for new users
+- ⚡ **Global hotkeys** - Access your clipboard from anywhere
+- 🔧 **Settings management** - Customizable preferences and shortcuts
 
 ## Installation
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases page](https://github.com/yourusername/clip-vault/releases).
-
+Download the latest release for your platform from the [Releases page](https://github.com/densumesh/clip-vault/releases).
 
 ### Building from Source
 
@@ -30,7 +33,7 @@ Requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/clip-vault.git
+git clone https://github.com/densumesh/clip-vault.git
 cd clip-vault
 
 # Build the CLI tools
@@ -62,11 +65,6 @@ yarn tauri build
    clip-vault list
    ```
 
-4. **Stop the background daemon:**
-   ```bash
-   clip-vault stop
-   ```
-
 ### Desktop Application
 
 Launch the Clip Vault app from your applications folder or run:
@@ -79,16 +77,17 @@ yarn tauri dev
 ./target/release/clip-vault-app
 ```
 
+The app will guide you through initial setup with an onboarding flow, then run in the background with system tray access.
+
 ## Architecture
 
-Clip Vault is built as a Rust workspace with multiple crates:
+Clip Vault is built as a Rust workspace with integrated components:
 
 ### Core Components
 
 - **`clip-vault-core`** - Core library with encryption, storage, and data models
 - **`clip-vault-cli`** - Command-line interface for interacting with your vault
-- **`clip-vault-daemon`** - Background service that monitors clipboard changes
-- **`clip-vault-app`** - Desktop GUI application built with Tauri and React
+- **`clip-vault-app`** - Desktop GUI application with integrated background monitoring
 
 ### Key Technologies
 
@@ -103,14 +102,11 @@ Clip Vault is built as a Rust workspace with multiple crates:
 ### Environment Variables
 
 - `CLIP_VAULT_KEY` - Vault password (bypasses interactive prompt)
-- `CLIP_VAULT_FOREGROUND` - Prevents daemonization on Unix systems (for debugging)
 
 ### File Locations
 
 - **Database**: `{data_dir}/clip-vault/clip_vault.db`
 - **Session cache**: `{cache_dir}/clip-vault/session.json`
-- **macOS LaunchAgent**: `~/Library/LaunchAgents/com.clip-vault.daemon.plist`
-- **Logs**: `/tmp/clip-vault.out`, `/tmp/clip-vault.err`
 
 ## Development
 
@@ -120,7 +116,6 @@ Clip Vault is built as a Rust workspace with multiple crates:
 clip-vault/
 ├── clip-vault-core/     # Core library (encryption, storage)
 ├── clip-vault-cli/      # Command-line interface
-├── clip-vault-daemon/   # Background monitoring service
 ├── clip-vault-tests/    # Integration tests
 ├── clip-vault-app/      # Desktop application
 │   ├── src/            # React frontend
@@ -140,9 +135,6 @@ cargo build --workspace
 # Run CLI (requires setup first)
 cargo run -p clip-vault-cli -- setup
 cargo run -p clip-vault-cli -- latest
-
-# Run daemon directly (for testing)
-CLIP_VAULT_KEY="test" cargo run -p clip-vault-daemon
 
 # Run desktop app in development
 cd clip-vault-app

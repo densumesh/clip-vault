@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import "highlight.js/styles/github-dark.css";
 import "./App.css";
 
 // Components
@@ -200,6 +199,7 @@ function App() {
           onClose={handleCloseUpdateNotification}
         />
       )}
+
     </div>
   );
 }

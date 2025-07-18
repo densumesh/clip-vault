@@ -90,7 +90,11 @@ pub async fn search_clipboard(
 }
 
 #[tauri::command]
-pub async fn copy_to_clipboard(content: String, content_type: String) -> Result<(), String> {
+pub async fn copy_to_clipboard(
+    content: String,
+    content_type: String,
+    app: AppHandle,
+) -> Result<(), String> {
     use arboard::Clipboard;
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
     if content_type == "text/plain" {
@@ -108,6 +112,17 @@ pub async fn copy_to_clipboard(content: String, content_type: String) -> Result<
         };
         clipboard.set_image(data).map_err(|e| e.to_string())?;
     }
+
+    // Show toast notification
+    show_toast_notification(app).await?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn show_toast_notification(app: AppHandle) -> Result<(), String> {
+    use crate::modules::window_manager::show_toast_window;
+    show_toast_window(&app);
     Ok(())
 }
 

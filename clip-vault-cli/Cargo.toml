@@ -23,7 +23,6 @@ arboard = "3.4"                                                            # For
 chrono-humanize = "0.2"                                                    # For human readable timestamps
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 
-syntect = "5"
 
 [lints.clippy]
 pedantic = "warn"

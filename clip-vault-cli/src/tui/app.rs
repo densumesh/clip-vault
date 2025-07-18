@@ -19,15 +19,8 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::io;
-use std::sync::LazyLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, process::Command};
-use syntect::{
-    easy::HighlightLines,
-    highlighting::ThemeSet,
-    parsing::{SyntaxReference, SyntaxSet},
-    util::LinesWithEndings,
-};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
@@ -800,61 +793,14 @@ impl App {
         f.render_widget(help, footer_chunks[1]);
     }
 
-    /// Prepare highlighted lines for preview and reset scroll offset
+    /// Prepare plain text lines for preview and reset scroll offset
     fn prepare_preview(&mut self, text: &str) {
         self.preview_text = text.to_string();
 
-        // Detect fenced code block and language
-        let (code_lang, code_body) = if let Some(first_line) = text.lines().next() {
-            if first_line.starts_with("```") {
-                let lang = first_line.trim_start_matches("```").trim();
-                let body = text.lines().skip(1).collect::<Vec<_>>().join("\n");
-                (Some(lang.to_string()), body)
-            } else {
-                (None, text.to_string())
-            }
-        } else {
-            (None, text.to_string())
-        };
-
+        // Convert all lines to plain text
         let mut lines: Vec<ratatui::text::Line<'static>> = Vec::new();
-
-        if let Some(lang_token) = code_lang {
-            // Syntax highlight using syntect
-            let ss: &SyntaxSet = &SYNTAX_SET;
-            let theme = &THEME_SET.themes["base16-ocean.dark"];
-            let syntax: &SyntaxReference = ss
-                .find_syntax_by_token(&lang_token)
-                .unwrap_or_else(|| ss.find_syntax_plain_text());
-            let mut h = HighlightLines::new(syntax, theme);
-
-            for line in LinesWithEndings::from(&code_body) {
-                let ranges = h.highlight_line(line, ss).unwrap_or_default();
-                let mut spans = Vec::new();
-                for (style, piece) in ranges {
-                    let fg = syn_color_to_tui(style.foreground);
-                    let mut tui_style = Style::default().fg(fg);
-                    if style
-                        .font_style
-                        .contains(syntect::highlighting::FontStyle::BOLD)
-                    {
-                        tui_style = tui_style.add_modifier(Modifier::BOLD);
-                    }
-                    if style
-                        .font_style
-                        .contains(syntect::highlighting::FontStyle::ITALIC)
-                    {
-                        tui_style = tui_style.add_modifier(Modifier::ITALIC);
-                    }
-                    spans.push(Span::styled(piece.to_string(), tui_style));
-                }
-                lines.push(ratatui::text::Line::from(spans));
-            }
-        } else {
-            // Plain text lines
-            for l in code_body.lines() {
-                lines.push(ratatui::text::Line::from(l.to_string()));
-            }
+        for line in text.lines() {
+            lines.push(ratatui::text::Line::from(line.to_string()));
         }
 
         self.preview_lines = lines;
@@ -896,10 +842,3 @@ impl App {
     }
 }
 
-/// Global syntax and theme sets, initialized on first use without `lazy_static`.
-pub static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
-pub static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
-
-fn syn_color_to_tui(c: syntect::highlighting::Color) -> Color {
-    Color::Rgb(c.r, c.g, c.b)
-}

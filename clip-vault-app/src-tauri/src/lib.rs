@@ -12,7 +12,7 @@ mod state;
 use commands::{
     check_for_updates, check_vault_status, copy_to_clipboard, create_vault, daemon_status,
     delete_item, get_platform, get_settings, install_update, list_clipboard, open_settings_window,
-    quit_app, save_settings, search_clipboard, start_daemon, stop_daemon, unlock_vault,
+    quit_app, save_settings, search_clipboard, show_toast_notification, start_daemon, stop_daemon, unlock_vault,
     update_item, vault_exists,
 };
 use modules::{system_tray::create_system_tray, window_manager::show_search_window};
@@ -94,6 +94,7 @@ pub fn run() {
             get_platform,
             check_for_updates,
             install_update,
+            show_toast_notification,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

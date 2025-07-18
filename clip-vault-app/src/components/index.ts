@@ -5,3 +5,4 @@ export { PasswordPrompt } from "./PasswordPrompt";
 export { OnboardingFlow } from "./OnboardingFlow";
 export type { OnboardingSettings } from "./OnboardingFlow";
 export { UpdateNotification } from "./UpdateNotification";
+export { ToastNotification } from "./ToastNotification";
