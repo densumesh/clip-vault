@@ -1,22 +1,15 @@
 # Clip Vault
 
-A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault automatically captures and encrypts your clipboard history, making it searchable and accessible with a beautiful modern interface.
+A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault automatically captures and encrypts your clipboard history, making it searchable and accessible.
 
 ![image.png](images/main-image.png)
 
 ## Features
 
-- 🔒 **End-to-end encryption** - All clipboard data is encrypted using SQLCipher
-- 🖥️ **Cross-platform** - Works on macOS, Windows, and Linux
-- 🔍 **Fast search** - Quickly find clipboard items from your history
-- 🎨 **Modern UI** - Beautiful, responsive interface built with React and Tauri
-- 🔄 **Background monitoring** - Automatically captures clipboard changes
-- 📱 **Portable** - Single executable with no external dependencies
-- 🚀 **Lightweight** - Minimal system resource usage
-- 🎯 **Toast notifications** - Visual feedback when copying items
-- 🚀 **Onboarding flow** - Guided setup for new users
-- ⚡ **Global hotkeys** - Access your clipboard from anywhere
-- 🔧 **Settings management** - Customizable preferences and shortcuts
+- **End-to-end encryption** - All clipboard data is encrypted using SQLCipher
+- **Cross-platform** - Works on macOS, Windows, and Linux
+- **Fast search** - Quickly find clipboard items from your history
+- **Global hotkeys** - Access your clipboard from anywhere
 
 ## Installation
 
@@ -46,39 +39,6 @@ yarn build
 yarn tauri build
 ```
 
-## Quick Start
-
-### Command Line Interface
-
-1. **Setup your vault password:**
-   ```bash
-   clip-vault setup
-   ```
-
-2. **View your latest clipboard item:**
-   ```bash
-   clip-vault latest
-   ```
-
-3. **List all clipboard history:**
-   ```bash
-   clip-vault list
-   ```
-
-### Desktop Application
-
-Launch the Clip Vault app from your applications folder or run:
-```bash
-# Development mode
-cd clip-vault-app
-yarn tauri dev
-
-# Or run the built binary
-./target/release/clip-vault-app
-```
-
-The app will guide you through initial setup with an onboarding flow, then run in the background with system tray access.
-
 ## Architecture
 
 Clip Vault is built as a Rust workspace with integrated components:
@@ -88,14 +48,6 @@ Clip Vault is built as a Rust workspace with integrated components:
 - **`clip-vault-core`** - Core library with encryption, storage, and data models
 - **`clip-vault-cli`** - Command-line interface for interacting with your vault
 - **`clip-vault-app`** - Desktop GUI application with integrated background monitoring
-
-### Key Technologies
-
-- **Backend**: Rust with SQLCipher for encrypted storage
-- **Frontend**: React with TypeScript and Vite
-- **Desktop**: Tauri for cross-platform native apps
-- **Encryption**: SQLCipher with password-based encryption
-- **CLI**: Clap for command-line argument parsing
 
 ## Configuration
 
