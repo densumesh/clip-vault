@@ -2,7 +2,7 @@
 
 A secure, cross-platform clipboard manager built with Rust and Tauri. Clip Vault automatically captures and encrypts your clipboard history, making it searchable and accessible.
 
-![image.png](images/Clip-vault.gif)
+![image.png](images/main-image.png)
 
 ## Features
 
