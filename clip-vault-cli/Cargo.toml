@@ -19,7 +19,7 @@ dialoguer.workspace = true                        # lets us build the XML safely
 # TUI dependencies
 ratatui = "0.28"
 crossterm = "0.29"
-arboard = "3.4"                                                            # For copying to clipboard from TUI
+arboard = "3.6"                                                            # For copying to clipboard from TUI
 chrono-humanize = "0.2"                                                    # For human readable timestamps
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 
