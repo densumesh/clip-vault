@@ -7,7 +7,7 @@ edition = "2021"
 clip-vault-core = { path = "../clip-vault-core" }
 
 # Test dependencies
-tempfile = "3.8"
+tempfile = "3.23"
 assert_cmd = "2.0"
 predicates = "3.0"
 serde_json = { workspace = true }
